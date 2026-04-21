@@ -43,24 +43,18 @@ body {
     margin-bottom: 20px;
 }
 
-.sidebar-logo {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+.logo-container {
+    text-align: center;
+    margin-bottom: 30px;
 }
 
-.logo-small {
-    width: 40px;
-    height: 40px;
-    background: var(--primary-red);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
+.logo {
+    width: 80px;
+    display: inline-flex;
     justify-content: center;
-    color: white;
     font-weight: bold;
-    font-size: 14px;
-    border: 2px solid var(--primary-yellow);
+    font-size: 24px;
+    margin-bottom: 10px;
 }
 
 .sidebar-logo-text {
