@@ -193,7 +193,12 @@ body {
 }
 
 .btn-primary {
-    background: var(--info-blue);
+    background: #2264E5;
+    color: white;
+}
+
+.btn-new {
+    background: #0D9DAD;
     color: white;
 }
 
