@@ -2,11 +2,12 @@
 // File: includes/sidebar.php
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
 $module = basename(dirname($_SERVER['PHP_SELF']));
+$logoPath = '../../assets/images/inaco_logo-removebg-preview.png';
 ?>
 <aside class="sidebar">
     <div class="sidebar-header">
         <div class="sidebar-logo">
-            <div class="logo-small">IN</div>
+            <img src="<?php echo $logoPath; ?>" alt="logo" class="logo"/>
             <div>
                 <div class="sidebar-logo-text">E-Purch</div>
                 <div class="sidebar-company">PT Niramas Utama (INACO)</div>
