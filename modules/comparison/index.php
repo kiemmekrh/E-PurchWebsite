@@ -19,11 +19,14 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
         <div class="page-header">
             <div>
                 <h1 class="page-title">Comparison Table History</h1>
-                <p class="welcome-text">Generate supplier comparison based on historical purchase data</p>
+                <p class="welcome-text">Generate supplier comparison table</p>
             </div>
             <div class="header-actions">
                 <button class="btn btn-primary btn-small" onclick="showCreateComparison()">
                     + Create Comparison Table
+                </button>
+                <button class="btn btn-new btn-small" onclick="showCreateComparison()">
+                    + Create New Comparison Table
                 </button>
                 <button class="btn btn-success btn-small" onclick="exportTable('comparisonTable')">
                     Export to Excel
