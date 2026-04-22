@@ -272,6 +272,24 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             color: #666;
         }
         .notes p { margin: 2px 0; }
+        /* Scroll horizontal untuk tabel */
+        .data-table-container {
+            overflow-x: auto;
+            max-width: 100%;
+        }
+
+        .data-table {
+            min-width: 1400px; /* Atur sesuai kebutuhan */
+            width: max-content;
+        }
+
+        /* Atau kalau mau lebih smooth */
+        .historical-table-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+        }
     </style>
 </head>
 <body>
@@ -293,7 +311,7 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
                     <button class="btn btn-new btn-small" onclick="showCreateNewComparison()">
                         + Create New Comparison Table
                     </button>
-                    <button class="btn btn-success btn-small" onclick="exportTable('comparisonTable')">
+                    <button class="btn btn-success btn-small" onclick="exportSelectedToExcel()">
                         Export to Excel
                     </button>
                 </div>
@@ -346,22 +364,28 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
                         <input type="text" class="filter-input" placeholder="Search..." id="searchComparison">
                     </div>
                 </div>
+                <div class="historical-table-wrapper"> 
                 <table class="data-table" id="comparisonTable">
-                    <thead>
-                        <tr>
-                            <th>COMPARISON ID</th>
-                            <th>DATE</th>
-                            <th>MATERIAL</th>
-                            <th>SUPPLIERS COMPARED</th>
-                            <th>BEST PRICE</th>
-                            <th>CREATED BY</th>
-                            <th>ACTIONS</th>
-                        </tr>
-                    </thead>
-                    <tbody id="comparisonTableBody">
-                        <!-- Loaded via AJAX -->
-                    </tbody>
-                </table>
+                <thead>
+                    <tr>
+                        <th class="checkbox-col"><input type="checkbox" id="selectAllHistory" onchange="toggleSelectAllHistory()"></th>
+                        <th>COMPARISON ID</th>
+                        <th>PR NUMBER</th>      <!-- TAMBAH -->
+                        <th>PO NUMBER</th>      <!-- PO Awarded -->
+                        <th>PO DATE</th>
+                        <th>DATE</th>
+                        <th>MATERIAL</th>
+                        <th>QTY</th>
+                        <th>PRICE</th>
+                        <th>AMOUNT</th>
+                        <th>SUPPLIER</th>
+                        <th>DELIVERY DATE</th>
+                        <th>ACTIONS</th>
+                    </tr>
+                </thead>
+                <tbody id="comparisonTableBody"></tbody>
+            </table>
+            </div>
             </div>
         </div>
 
@@ -441,21 +465,6 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
                     <h1 class="page-title">Create New Comparison Table</h1>
                     <p class="welcome-text">Fill in all columns. Gap will be calculated automatically.</p>
                 </div>
-            </div>
-
-            <!-- Filter Section -->
-            <div class="filter-section">
-                <div class="filter-group">
-                    <label>Material Name / Code</label>
-                    <input type="text" id="newMaterialSearch" placeholder="Search material..." autocomplete="off">
-                    <div class="autocomplete-list" id="newMaterialSuggestions"></div>
-                </div>
-                <div class="filter-group">
-                    <label>Supplier (Optional)</label>
-                    <input type="text" id="newSupplierSearch" placeholder="Search supplier..." autocomplete="off">
-                    <div class="autocomplete-list" id="newSupplierSuggestions"></div>
-                </div>
-                <button class="btn-filter" onclick="loadNewComparisonData()">Load Data</button>
             </div>
 
             <!-- Comparison Spreadsheet -->
@@ -627,598 +636,5 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
     </main>
 
     <script src="../../assets/js/comparison.js"></script>
-    <script>
-        // ==================== GLOBAL VARIABLES ====================
-        let currentPage = 1;
-        let rowsPerPage = 10;
-        let totalRows = 0;
-        let poData = [];
-        let selectedPOs = new Set();
-
-        document.addEventListener('DOMContentLoaded', function() {
-            loadComparisonHistory();
-            loadSupplierOptions();
-            initMaterialAutocomplete();
-            initCreateViewAutocomplete();
-        });
-
-        // ==================== VIEW NAVIGATION ====================
-        function showCreateComparison() {
-            document.getElementById('historyView').classList.add('hidden');
-            document.getElementById('createView').classList.add('active');
-            loadPODData();
-        }
-
-        function showCreateNewComparison() {
-            document.getElementById('historyView').classList.add('hidden');
-            document.getElementById('newComparisonView').classList.add('active');
-            initNewComparisonAutocomplete();
-            loadSupplierList();
-        }
-
-        function backToHistory() {
-            document.getElementById('historyView').classList.remove('hidden');
-            document.getElementById('createView').classList.remove('active');
-            document.getElementById('newComparisonView').classList.remove('active');
-            selectedPOs.clear();
-        }
-
-        function hideCreateComparison() {
-            document.getElementById('createForm').style.display = 'none';
-        }
-
-        // ==================== CREATE COMPARISON (VIEW 2) ====================
-        function loadPODData(material = '', supplier = '') {
-            fetch(`api/get_po_data.php?material=${encodeURIComponent(material)}&supplier=${encodeURIComponent(supplier)}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        poData = data.data || [];
-                        totalRows = poData.length;
-                        currentPage = 1;
-                        renderPOTable();
-                        updatePagination();
-                    }
-                })
-                .catch(err => console.error('Error loading PO data:', err));
-        }
-
-        function filterCreateTable() {
-            const material = document.getElementById('createMaterialSearch').value;
-            const supplier = document.getElementById('createSupplierSearch').value;
-            loadPODData(material, supplier);
-        }
-
-        function renderPOTable() {
-            const tbody = document.getElementById('poDataTableBody');
-            const start = (currentPage - 1) * rowsPerPage;
-            const end = start + rowsPerPage;
-            const pageData = poData.slice(start, end);
-
-            tbody.innerHTML = pageData.map((row, index) => `
-                <tr>
-                    <td class="checkbox-col">
-                        <input type="checkbox" ${selectedPOs.has(row.po_id) ? 'checked' : ''} 
-                               onchange="togglePOSelection(${row.po_id})">
-                    </td>
-                    <td>${start + index + 1}</td>
-                    <td>${row.po_number || '-'}</td>
-                    <td>${row.description || '-'}</td>
-                    <td>${formatDate(row.po_date)}</td>
-                    <td>${formatDate(row.delivery_date)}</td>
-                    <td>${row.supplier_name || '-'}</td>
-                    <td>${row.ordered_quantity || 0} ${row.unit || 'PCS'}</td>
-                    <td>${formatCurrency(row.unit_price)}</td>
-                    <td>${formatCurrency(row.total_amount)}</td>
-                </tr>
-            `).join('');
-
-            const showingEnd = Math.min(end, totalRows);
-            document.getElementById('showingInfo').textContent = 
-                totalRows > 0 ? `${start + 1}-${showingEnd} of ${totalRows}` : '0-0 of 0';
-        }
-
-        function updatePagination() {
-            const totalPages = Math.ceil(totalRows / rowsPerPage) || 1;
-            document.getElementById('pageInfo').textContent = `${currentPage} / ${totalPages}`;
-            document.getElementById('btnPrev').disabled = currentPage <= 1;
-            document.getElementById('btnNext').disabled = currentPage >= totalPages;
-        }
-
-        function changeRowsPerPage() {
-            rowsPerPage = parseInt(document.getElementById('rowsPerPage').value);
-            currentPage = 1;
-            renderPOTable();
-            updatePagination();
-        }
-
-        function prevPage() {
-            if (currentPage > 1) {
-                currentPage--;
-                renderPOTable();
-                updatePagination();
-            }
-        }
-
-        function nextPage() {
-            const totalPages = Math.ceil(totalRows / rowsPerPage);
-            if (currentPage < totalPages) {
-                currentPage++;
-                renderPOTable();
-                updatePagination();
-            }
-        }
-
-        function toggleSelectAll() {
-            const checkAll = document.getElementById('selectAllPO').checked;
-            const start = (currentPage - 1) * rowsPerPage;
-            const end = start + rowsPerPage;
-            for (let i = start; i < Math.min(end, poData.length); i++) {
-                if (checkAll) selectedPOs.add(poData[i].po_id);
-                else selectedPOs.delete(poData[i].po_id);
-            }
-            renderPOTable();
-        }
-
-        function togglePOSelection(poId) {
-            if (selectedPOs.has(poId)) selectedPOs.delete(poId);
-            else selectedPOs.add(poId);
-        }
-
-        function createComparisonFromSelection() {
-            if (selectedPOs.size === 0) {
-                alert('Please select at least one PO');
-                return;
-            }
-            const selectedData = poData.filter(po => selectedPOs.has(po.po_id));
-            const materials = [...new Set(selectedData.map(po => po.material_group || po.description))];
-            if (materials.length > 1) {
-                alert('Please select POs with the same material');
-                return;
-            }
-            const formData = new FormData();
-            formData.append('material', materials[0]);
-            formData.append('po_ids', JSON.stringify([...selectedPOs]));
-            
-            fetch('api/generate.php', { method: 'POST', body: formData })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        alert(`Comparison created! ID: ${data.comparison_id}`);
-                        backToHistory();
-                        loadComparisonHistory();
-                    } else {
-                        alert('Error: ' + data.error);
-                    }
-                })
-                .catch(err => console.error('Error:', err));
-        }
-
-        // ==================== CREATE NEW COMPARISON (VIEW 3 - SPREADSHEET) ====================
-        
-        // Load supplier list for datalist
-        function loadSupplierList() {
-            fetch('api/get_suppliers.php')
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        const datalist = document.getElementById('supplierList');
-                        datalist.innerHTML = data.data.map(s => 
-                            `<option value="${s.supplier_name}">${s.supplier_code} - ${s.supplier_name}</option>`
-                        ).join('');
-                    }
-                })
-                .catch(err => console.error('Error loading suppliers:', err));
-        }
-
-        // Load historical data (optional - untuk default value)
-        function loadNewComparisonData() {
-            const material = document.getElementById('newMaterialSearch').value;
-            const supplier = document.getElementById('newSupplierSearch').value;
-            
-            if (!material) {
-                alert('Please enter material name or code');
-                return;
-            }
-            
-            fetch(`api/get_last_order.php?material=${encodeURIComponent(material)}&supplier=${encodeURIComponent(supplier)}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        populateLastOrderDefaults(data.data);
-                    } else {
-                        alert('No historical data found. You can fill manually.');
-                    }
-                })
-                .catch(err => console.error('Error:', err));
-        }
-
-        // Populate default values from history (user BISA EDIT semua)
-        function populateLastOrderDefaults(historyData) {
-            setFieldValue(1, 'last_qty', historyData.last_qty || '');
-            setFieldValue(1, 'last_po_number', historyData.last_po_number || '');
-            setFieldValue(1, 'last_po_date', formatDateForInput(historyData.last_po_date));
-            setFieldValue(1, 'last_price_foreign', historyData.last_price_foreign || '');
-            setFieldValue(1, 'last_kurs_date', formatDateForInput(historyData.last_kurs_date));
-            setFieldValue(1, 'last_kurs_idr', historyData.last_kurs_idr || '');
-            
-            // Trigger calculation - akan set auto=true jika foreign ada
-            calculateLastPriceIDR(1);
-            
-            setFieldValue(1, 'last_price_tiba_nu', historyData.last_price_tiba_nu || '');
-            setFieldValue(1, 'last_supplier', historyData.supplier_name || '');
-            
-            calculateLastAmount(1);
-            
-            // Fill header info
-            setFieldValue(1, 'material_code', historyData.material_group || '');
-            setFieldValue(1, 'description', historyData.description || '');
-            setFieldValue(1, 'uom', historyData.uom || 'KG');
-        }
-
-        // ==================== CALCULATION FUNCTIONS ====================
-        
-        // Calculate Last Order Price IDR
-        // Jika Price Foreign diisi → auto calculate (Foreign × Kurs)
-        // Jika Price Foreign kosong → biarkan manual input
-        function calculateLastPriceIDR(rowNum) {
-            const foreign = getFieldValue(rowNum, 'last_price_foreign');
-            const kurs = getFieldValue(rowNum, 'last_kurs_idr');
-            const priceIdrInput = document.querySelector(`[data-row="${rowNum}"] [data-field="last_price_idr"]`);
-            
-            if (foreign > 0) {
-                // Foreign diisi → auto calculate
-                const idr = foreign * (kurs > 0 ? kurs : 1);
-                priceIdrInput.value = idr.toFixed(2);
-                priceIdrInput.dataset.auto = "true"; // tandai sebagai auto
-            } else {
-                // Foreign kosong → enable manual input, jangan overwrite
-                priceIdrInput.dataset.auto = "false";
-            }
-            
-            calculateLastAmount(rowNum);
-            calculateGap(rowNum);
-        }
-
-        // Jika user edit Price IDR manual saat Foreign sudah ada
-        function manualOverrideLastPriceIDR(rowNum) {
-            const foreign = getFieldValue(rowNum, 'last_price_foreign');
-            const priceIdrInput = document.querySelector(`[data-row="${rowNum}"] [data-field="last_price_idr"]`);
-            
-            if (foreign > 0) {
-                // Foreign ada → kembalikan ke auto
-                const kurs = getFieldValue(rowNum, 'last_kurs_idr');
-                const idr = foreign * (kurs > 0 ? kurs : 1);
-                priceIdrInput.value = idr.toFixed(2);
-                alert('Price IDR auto-calculated from Foreign Price × Kurs. Clear Foreign Price to input manually.');
-            }
-            // Jika foreign kosong, biarkan manual input
-            
-            calculateGap(rowNum);
-        }
-
-        // Calculate Last Order Amount (auto: Qty × TIBA NU)
-        function calculateLastAmount(rowNum) {
-            const qty = getFieldValue(rowNum, 'last_qty');
-            const tibaNu = getFieldValue(rowNum, 'last_price_tiba_nu');
-            const amount = qty * tibaNu;
-            setFieldValue(rowNum, 'last_amount', amount.toFixed(2));
-        }
-
-        // Calculate Plan Order Price IDR
-        // Jika Price Foreign diisi → auto calculate (Foreign × Kurs)
-        // Jika Price Foreign kosong → biarkan manual input
-        function calculatePlanPriceIDR(rowNum) {
-            const foreign = getFieldValue(rowNum, 'plan_price_foreign');
-            const kurs = getFieldValue(rowNum, 'plan_kurs_idr');
-            const priceIdrInput = document.querySelector(`[data-row="${rowNum}"] [data-field="plan_price_idr"]`);
-            
-            if (foreign > 0) {
-                // Foreign diisi → auto calculate
-                const idr = foreign * (kurs > 0 ? kurs : 1);
-                priceIdrInput.value = idr.toFixed(2);
-                priceIdrInput.dataset.auto = "true";
-            } else {
-                // Foreign kosong → enable manual input
-                priceIdrInput.dataset.auto = "false";
-            }
-            
-            calculatePlanAmount(rowNum);
-            calculateGap(rowNum);
-        }
-
-        // Jika user edit Price IDR manual saat Foreign sudah ada
-        function manualOverridePlanPriceIDR(rowNum) {
-            const foreign = getFieldValue(rowNum, 'plan_price_foreign');
-            const priceIdrInput = document.querySelector(`[data-row="${rowNum}"] [data-field="plan_price_idr"]`);
-            
-            if (foreign > 0) {
-                // Foreign ada → kembalikan ke auto
-                const kurs = getFieldValue(rowNum, 'plan_kurs_idr');
-                const idr = foreign * (kurs > 0 ? kurs : 1);
-                priceIdrInput.value = idr.toFixed(2);
-                alert('Price IDR auto-calculated from Foreign Price × Kurs. Clear Foreign Price to input manually.');
-            }
-            // Jika foreign kosong, biarkan manual input
-            
-            calculateGap(rowNum);
-        }
-
-        // Calculate Plan Order Amount (auto: Qty × TIBA NU)
-        function calculatePlanAmount(rowNum) {
-            const qty = getFieldValue(rowNum, 'plan_qty');
-            const tibaNu = getFieldValue(rowNum, 'plan_price_tiba_nu');
-            const amount = qty * tibaNu;
-            setFieldValue(rowNum, 'plan_amount', amount.toFixed(2));
-        }
-
-        // Calculate GAP (auto: Plan - Last Order)
-        function calculateGap(rowNum) {
-            const lastPrice = getFieldValue(rowNum, 'last_price_idr');
-            const planPrice = getFieldValue(rowNum, 'plan_price_idr');
-            
-            const gapPrice = planPrice - lastPrice;
-            const gapPercent = lastPrice > 0 ? ((gapPrice / lastPrice) * 100) : 0;
-            
-            setFieldValue(rowNum, 'gap_price', gapPrice.toFixed(2));
-            setFieldValue(rowNum, 'gap_percent', gapPercent.toFixed(2));
-        }
-
-        // ==================== HELPER FUNCTIONS ====================
-        
-        function setFieldValue(rowNum, fieldName, value) {
-            const inputs = document.querySelectorAll(`[data-row="${rowNum}"] [data-field="${fieldName}"]`);
-            inputs.forEach(input => { if (input) input.value = value; });
-        }
-
-        function getFieldValue(rowNum, fieldName) {
-            const input = document.querySelector(`[data-row="${rowNum}"] [data-field="${fieldName}"]`);
-            return input ? parseFloat(input.value) || 0 : 0;
-        }
-
-        function formatDate(dateStr) {
-            if (!dateStr) return '-';
-            const d = new Date(dateStr);
-            return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        }
-
-        function formatCurrency(amount) {
-            if (!amount) return '0';
-            return new Intl.NumberFormat('id-ID').format(amount);
-        }
-
-        function formatDateForInput(dateStr) {
-            if (!dateStr) return '';
-            const d = new Date(dateStr);
-            return d.toISOString().split('T')[0];
-        }
-
-        // ==================== SAVE FUNCTIONS ====================
-        
-        function saveAsDraft() {
-            saveComparisonData('draft');
-        }
-
-        function saveComparison() {
-            saveComparisonData('final');
-        }
-
-        function saveComparisonData(status) {
-            const payload = collectFormData();
-            payload.status = status;
-            
-            fetch('api/save_comparison.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    alert(`Comparison saved as ${status}! ID: ${data.comparison_id}`);
-                    backToHistory();
-                    loadComparisonHistory();
-                } else {
-                    alert('Error: ' + (data.error || 'Unknown error'));
-                }
-            })
-            .catch(err => console.error('Error saving:', err));
-        }
-
-        function collectFormData() {
-            return {
-                pr_number: document.querySelector('[data-field="pr_number"]').value,
-                material_code: document.querySelector('[data-field="material_code"]').value,
-                description: document.querySelector('[data-field="description"]').value,
-                uom: document.querySelector('[data-field="uom"]').value,
-                qty_pr: getFieldValue(1, 'qty_pr'),
-                
-                // Last Order
-                last_qty: getFieldValue(1, 'last_qty'),
-                last_po_number: document.querySelector('[data-field="last_po_number"]').value,
-                last_po_date: document.querySelector('[data-field="last_po_date"]').value,
-                last_price_foreign: getFieldValue(1, 'last_price_foreign'),
-                last_kurs_date: document.querySelector('[data-field="last_kurs_date"]').value,
-                last_kurs_idr: getFieldValue(1, 'last_kurs_idr'),
-                last_price_idr: getFieldValue(1, 'last_price_idr'),
-                last_price_tiba_nu: getFieldValue(1, 'last_price_tiba_nu'),
-                last_amount: getFieldValue(1, 'last_amount'),
-                last_supplier: document.querySelector('[data-field="last_supplier"]').value,
-                
-                // Plan Order
-                plan_qty: getFieldValue(1, 'plan_qty'),
-                plan_price_foreign: getFieldValue(1, 'plan_price_foreign'),
-                plan_kurs_date: document.querySelector('[data-field="plan_kurs_date"]').value,
-                plan_kurs_idr: getFieldValue(1, 'plan_kurs_idr'),
-                plan_price_idr: getFieldValue(1, 'plan_price_idr'),
-                plan_price_tiba_nu: getFieldValue(1, 'plan_price_tiba_nu'),
-                plan_amount: getFieldValue(1, 'plan_amount'),
-                plan_supplier: document.querySelector('[data-field="plan_supplier"]').value,
-                
-                // Gap
-                gap_price: getFieldValue(1, 'gap_price'),
-                gap_percent: getFieldValue(1, 'gap_percent'),
-                
-                // Awarded
-                awarded_po_date: document.querySelector('[data-field="awarded_po_date"]').value,
-                awarded_deliv_date: document.querySelector('[data-field="awarded_deliv_date"]').value,
-                awarded_po_number: document.querySelector('[data-field="awarded_po_number"]').value,
-                awarded_supplier: document.querySelector('[data-field="awarded_supplier"]').value,
-                awarded_amount: getFieldValue(1, 'awarded_amount'),
-                awarded_keterangan: document.querySelector('[data-field="awarded_keterangan"]').value
-            };
-        }
-
-        // ==================== AUTOCOMPLETE ====================
-        
-        function initCreateViewAutocomplete() {
-            const materialInput = document.getElementById('createMaterialSearch');
-            const supplierInput = document.getElementById('createSupplierSearch');
-            
-            materialInput.addEventListener('input', debounce(function() {
-                if (this.value.length < 2) return;
-                fetch(`api/autocomplete.php?type=material&q=${encodeURIComponent(this.value)}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        const list = document.getElementById('createMaterialSuggestions');
-                        list.innerHTML = data.map(item => `
-                            <div onclick="selectCreateMaterial('${item.value}')">${item.label}</div>
-                        `).join('');
-                        list.style.display = 'block';
-                    });
-            }, 300));
-
-            supplierInput.addEventListener('input', debounce(function() {
-                if (this.value.length < 2) return;
-                fetch(`api/autocomplete.php?type=supplier&q=${encodeURIComponent(this.value)}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        const list = document.getElementById('createSupplierSuggestions');
-                        list.innerHTML = data.map(item => `
-                            <div onclick="selectCreateSupplier('${item.value}')">${item.label}</div>
-                        `).join('');
-                        list.style.display = 'block';
-                    });
-            }, 300));
-
-            document.addEventListener('click', function(e) {
-                if (!e.target.closest('.filter-group')) {
-                    document.getElementById('createMaterialSuggestions').style.display = 'none';
-                    document.getElementById('createSupplierSuggestions').style.display = 'none';
-                }
-            });
-        }
-
-        function initNewComparisonAutocomplete() {
-            const materialInput = document.getElementById('newMaterialSearch');
-            const supplierInput = document.getElementById('newSupplierSearch');
-            
-            materialInput.addEventListener('input', debounce(function() {
-                if (this.value.length < 2) return;
-                fetch(`api/autocomplete.php?type=material&q=${encodeURIComponent(this.value)}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        const list = document.getElementById('newMaterialSuggestions');
-                        list.innerHTML = data.map(item => `
-                            <div onclick="selectNewMaterial('${item.value}')">${item.label}</div>
-                        `).join('');
-                        list.style.display = 'block';
-                    });
-            }, 300));
-
-            supplierInput.addEventListener('input', debounce(function() {
-                if (this.value.length < 2) return;
-                fetch(`api/autocomplete.php?type=supplier&q=${encodeURIComponent(this.value)}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        const list = document.getElementById('newSupplierSuggestions');
-                        list.innerHTML = data.map(item => `
-                            <div onclick="selectNewSupplier('${item.value}')">${item.label}</div>
-                        `).join('');
-                        list.style.display = 'block';
-                    });
-            }, 300));
-        }
-
-        function selectCreateMaterial(value) {
-            document.getElementById('createMaterialSearch').value = value;
-            document.getElementById('createMaterialSuggestions').style.display = 'none';
-        }
-
-        function selectCreateSupplier(value) {
-            document.getElementById('createSupplierSearch').value = value;
-            document.getElementById('createSupplierSuggestions').style.display = 'none';
-        }
-
-        function selectNewMaterial(value) {
-            document.getElementById('newMaterialSearch').value = value;
-            document.getElementById('newMaterialSuggestions').style.display = 'none';
-        }
-
-        function selectNewSupplier(value) {
-            document.getElementById('newSupplierSearch').value = value;
-            document.getElementById('newSupplierSuggestions').style.display = 'none';
-        }
-
-        function debounce(func, wait) {
-            let timeout;
-            return function(...args) {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => func.apply(this, args), wait);
-            };
-        }
-
-                // Helper: Get value with empty string handling
-                function getFieldValueSafe(rowNum, fieldName) {
-            const input = document.querySelector(`[data-row="${rowNum}"] [data-field="${fieldName}"]`);
-            if (!input) return '';
-            const val = input.value.trim();
-            return val === '' ? null : val;
-        }
-
-        function collectFormData() {
-            return {
-                pr_number: document.querySelector('[data-field="pr_number"]').value,
-                material_code: document.querySelector('[data-field="material_code"]').value,
-                description: document.querySelector('[data-field="description"]').value,
-                uom: document.querySelector('[data-field="uom"]').value,
-                qty_pr: getFieldValue(1, 'qty_pr'),
-                
-                // Last Order - use getFieldValueSafe for dates
-                last_qty: getFieldValue(1, 'last_qty'),
-                last_po_number: document.querySelector('[data-field="last_po_number"]').value,
-                last_po_date: getFieldValueSafe(1, 'last_po_date'),
-                last_price_foreign: getFieldValue(1, 'last_price_foreign'),
-                last_kurs_date: getFieldValueSafe(1, 'last_kurs_date'),
-                last_kurs_idr: getFieldValue(1, 'last_kurs_idr'),
-                last_price_idr: getFieldValue(1, 'last_price_idr'),
-                last_price_tiba_nu: getFieldValue(1, 'last_price_tiba_nu'),
-                last_amount: getFieldValue(1, 'last_amount'),
-                last_supplier: document.querySelector('[data-field="last_supplier"]').value,
-                
-                // Plan Order
-                plan_qty: getFieldValue(1, 'plan_qty'),
-                plan_price_foreign: getFieldValue(1, 'plan_price_foreign'),
-                plan_kurs_date: getFieldValueSafe(1, 'plan_kurs_date'),
-                plan_kurs_idr: getFieldValue(1, 'plan_kurs_idr'),
-                plan_price_idr: getFieldValue(1, 'plan_price_idr'),
-                plan_price_tiba_nu: getFieldValue(1, 'plan_price_tiba_nu'),
-                plan_amount: getFieldValue(1, 'plan_amount'),
-                plan_supplier: document.querySelector('[data-field="plan_supplier"]').value,
-                
-                // Gap
-                gap_price: getFieldValue(1, 'gap_price'),
-                gap_percent: getFieldValue(1, 'gap_percent'),
-                
-                // Awarded
-                awarded_po_date: getFieldValueSafe(1, 'awarded_po_date'),
-                awarded_deliv_date: getFieldValueSafe(1, 'awarded_deliv_date'),
-                awarded_po_number: document.querySelector('[data-field="awarded_po_number"]').value,
-                awarded_supplier: document.querySelector('[data-field="awarded_supplier"]').value,
-                awarded_amount: getFieldValue(1, 'awarded_amount'),
-                awarded_keterangan: document.querySelector('[data-field="awarded_keterangan"]').value
-            };
-        }
-    </script>
 </body>
 </html>
