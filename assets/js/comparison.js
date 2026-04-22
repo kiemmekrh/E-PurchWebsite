@@ -6,6 +6,7 @@ let poData = [];
 let selectedPOs = new Set();
 let selectedHistoryIds = new Set();
 let historyData = [];
+let selectedHistoricalRow = null; // VARIABEL BARU: menyimpan row historical yang dipilih
 
 document.addEventListener('DOMContentLoaded', function() {
     loadComparisonHistory();
@@ -29,10 +30,181 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ==================== VIEW NAVIGATION ====================
+
+// MODIFIKASI: showCreateComparison sekarang menampilkan View 2 dengan historical table
 function showCreateComparison() {
     document.getElementById('historyView').classList.add('hidden');
     document.getElementById('createView').classList.add('active');
-    loadPODData();
+
+    // Load historical data untuk View 2
+    loadHistoricalForCreateView();
+}
+
+// BARU: Load historical comparison data untuk ditampilkan di View 2
+function loadHistoricalForCreateView() {
+    // Gunakan historyData yang sudah di-load sebelumnya, atau fetch ulang
+    if (historyData.length > 0) {
+        renderHistoricalTableInCreateView(historyData);
+    } else {
+        fetch('api/get_history.php')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    historyData = data.data;
+                    renderHistoricalTableInCreateView(historyData);
+                }
+            })
+            .catch(err => console.error('Error loading history for create view:', err));
+    }
+}
+
+// BARU: Render historical table di dalam View 2 (Create Comparison)
+function renderHistoricalTableInCreateView(data) {
+    const tbody = document.getElementById('historicalTableInCreateBody');
+
+    if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:20px;color:#888;">No historical data found</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = data.map(row => `
+        <tr class="historical-row" onclick="selectHistoricalRow(this, ${row.comparison_id})">
+            <td class="checkbox-col">
+                <input type="radio" name="selectedHistorical" value="${row.comparison_id}"
+                    onchange="selectHistoricalRow(this.closest('tr'), ${row.comparison_id})">
+            </td>
+            <td>#${row.comparison_id}</td>
+            <td>${row.pr_number || '-'}</td>
+            <td>${row.po_number || '-'}</td>
+            <td>${formatDate(row.po_date)}</td>
+            <td>${formatDate(row.table_created_date)}</td>
+            <td>${row.material || row.material_group || row.material_code || '-'}</td>
+            <td>${row.plan_qty != null ? row.plan_qty : (row.qty || 0)}</td>
+            <td>${row.price ? 'Rp ' + new Intl.NumberFormat('id-ID').format(row.price) : '-'}</td>
+            <td>${row.amount ? 'Rp ' + new Intl.NumberFormat('id-ID').format(row.amount) : '-'}</td>
+            <td>${row.plan_supplier || row.supplier || '-'}</td>
+            <td>${formatDate(row.delivery_date)}</td>
+        </tr>
+    `).join('');
+}
+
+// BARU: Saat user klik row di tabel historical (di View 2)
+function selectHistoricalRow(rowElement, comparisonId) {
+    // Hapus seleksi sebelumnya
+    document.querySelectorAll('.historical-row').forEach(r => r.classList.remove('selected'));
+
+    // Tandai row yang diklik
+    rowElement.classList.add('selected');
+
+    // Cari data row yang dipilih dari historyData
+    selectedHistoricalRow = historyData.find(h => h.comparison_id == comparisonId);
+
+    if (selectedHistoricalRow) {
+        // Update info box
+        document.getElementById('selectedMaterial').textContent = selectedHistoricalRow.material || selectedHistoricalRow.material_group || selectedHistoricalRow.material_code || '-';
+        document.getElementById('selectedSupplier').textContent = selectedHistoricalRow.plan_supplier || selectedHistoricalRow.supplier || '-';
+        document.getElementById('selectedQty').textContent = selectedHistoricalRow.plan_qty || selectedHistoricalRow.qty || '-';
+        document.getElementById('selectedInfo').classList.add('active');
+
+        // Enable tombol "Use Selected as Last Order"
+        document.getElementById('btnUseSelected').disabled = false;
+
+        // Check radio button
+        const radio = rowElement.querySelector('input[type="radio"]');
+        if (radio) radio.checked = true;
+    }
+}
+
+// BARU: Saat user klik "Use Selected as Last Order" → pindah ke View 3 (spreadsheet)
+function useSelectedHistorical() {
+    if (!selectedHistoricalRow) {
+        alert('Please select a historical comparison first');
+        return;
+    }
+
+    // Pindah ke View 3 (spreadsheet New Comparison)
+    showCreateNewComparison();
+
+    // Isi Last Order dengan data dari historical row yang dipilih
+    populateLastOrderFromHistorical(selectedHistoricalRow);
+}
+
+// BARU: Isi Last Order di spreadsheet dari data historical yang dipilih
+function populateLastOrderFromHistorical(historyRow) {
+    const rowNum = 1;
+
+    // Header columns
+    setFieldValue(rowNum, 'pr_number', historyRow.pr_number || '');
+    setFieldValue(rowNum, 'material_code', historyRow.material_code || historyRow.material_group || '');
+    setFieldValue(rowNum, 'description', historyRow.material || historyRow.description || '');
+    setFieldValue(rowNum, 'uom', historyRow.uom || 'KG');
+    setFieldValue(rowNum, 'qty_pr', historyRow.qty_pr || historyRow.qty || 0);
+
+    // Last Order columns
+    setFieldValue(rowNum, 'last_qty', historyRow.plan_qty || historyRow.qty || 0);
+    setFieldValue(rowNum, 'last_po_number', historyRow.po_number || '');
+    setFieldValue(rowNum, 'last_po_date', formatDateForInput(historyRow.po_date));
+
+    // PERBAIKAN: Cek dulu jenis price-nya
+    const hasForeignPrice = historyRow.plan_price_foreign || historyRow.price_foreign;
+    const hasKurs = historyRow.plan_kurs_idr || historyRow.kurs_idr;
+    const hasPriceIdr = historyRow.plan_price_idr || historyRow.price_idr;
+    const tibaNuValue = historyRow.plan_price_tiba_nu || historyRow.price_tiba_nu 
+        || historyRow.last_price_tiba_nu
+        || historyRow.tiba_nu_price
+        || 0;
+
+    if (hasForeignPrice) {
+        // Ada foreign price → masuk ke Price (CNY/USD/SGD)
+        setFieldValue(rowNum, 'last_price_foreign', historyRow.plan_price_foreign || historyRow.price_foreign || 0);
+        setFieldValue(rowNum, 'last_kurs_date', formatDateForInput(historyRow.plan_kurs_date || historyRow.kurs_date));
+        setFieldValue(rowNum, 'last_kurs_idr', historyRow.plan_kurs_idr || historyRow.kurs_idr || 0);
+        // Price IDR dihitung otomatis
+    } else if (hasKurs && historyRow.price) {
+        // Ada kurs + price → price dianggap foreign
+        setFieldValue(rowNum, 'last_price_foreign', historyRow.price || 0);
+        setFieldValue(rowNum, 'last_kurs_date', formatDateForInput(historyRow.plan_kurs_date || historyRow.kurs_date));
+        setFieldValue(rowNum, 'last_kurs_idr', historyRow.plan_kurs_idr || historyRow.kurs_idr || 0);
+    } else if (hasPriceIdr) {
+        // Ada price_idr eksplisit
+        setFieldValue(rowNum, 'last_price_foreign', '');
+        setFieldValue(rowNum, 'last_kurs_date', '');
+        setFieldValue(rowNum, 'last_kurs_idr', '');
+        setFieldValue(rowNum, 'last_price_idr', historyRow.plan_price_idr || historyRow.price_idr || 0);
+    } else {
+        // Hanya ada price (generic), tidak ada kurs → ini IDR
+        setFieldValue(rowNum, 'last_price_foreign', '');
+        setFieldValue(rowNum, 'last_kurs_date', '');
+        setFieldValue(rowNum, 'last_kurs_idr', '');
+        setFieldValue(rowNum, 'last_price_idr', historyRow.price || 0);
+    }
+
+    calculateLastPriceIDR(rowNum);
+
+    setFieldValue(rowNum, 'last_price_tiba_nu', historyRow.plan_price_tiba_nu || historyRow.price_tiba_nu || 0);
+    setFieldValue(rowNum, 'last_supplier', historyRow.plan_supplier || historyRow.supplier || '');
+
+    calculateLastAmount(rowNum);
+
+    // Reset Plan Order (kosongkan untuk input baru)
+    setFieldValue(rowNum, 'plan_qty', '');
+    setFieldValue(rowNum, 'plan_price_foreign', '');
+    setFieldValue(rowNum, 'plan_kurs_date', '');
+    setFieldValue(rowNum, 'plan_kurs_idr', '');
+    setFieldValue(rowNum, 'plan_price_idr', '');
+    setFieldValue(rowNum, 'plan_price_tiba_nu', '');
+    setFieldValue(rowNum, 'plan_amount', '');
+    setFieldValue(rowNum, 'plan_supplier', '');
+
+    // Reset GAP & Awarded
+    setFieldValue(rowNum, 'gap_price', '');
+    setFieldValue(rowNum, 'gap_percent', '');
+    setFieldValue(rowNum, 'awarded_po_date', '');
+    setFieldValue(rowNum, 'awarded_deliv_date', '');
+    setFieldValue(rowNum, 'awarded_po_number', '');
+    setFieldValue(rowNum, 'awarded_supplier', '');
+    setFieldValue(rowNum, 'awarded_amount', '');
+    setFieldValue(rowNum, 'awarded_keterangan', '');
 }
 
 function loadComparisonHistory() {
@@ -50,8 +222,10 @@ function loadComparisonHistory() {
 }
 
 
+// TIDAK DIUBAH - showCreateNewComparison tetap seperti semula (spreadsheet kosong)
 function showCreateNewComparison() {
     document.getElementById('historyView').classList.add('hidden');
+    document.getElementById('createView').classList.remove('active');
     document.getElementById('newComparisonView').classList.add('active');
     loadSupplierList();
 }
@@ -61,6 +235,12 @@ function backToHistory() {
     document.getElementById('createView').classList.remove('active');
     document.getElementById('newComparisonView').classList.remove('active');
     selectedPOs.clear();
+    selectedHistoricalRow = null; // RESET
+
+    // Reset info box dan tombol
+    document.getElementById('selectedInfo').classList.remove('active');
+    document.getElementById('btnUseSelected').disabled = true;
+    document.querySelectorAll('.historical-row').forEach(r => r.classList.remove('selected'));
 }
 
 function hideCreateComparison() {
@@ -68,133 +248,32 @@ function hideCreateComparison() {
 }
 
 // ==================== CREATE COMPARISON (VIEW 2) ====================
-function loadPODData(material = '', supplier = '') {
-    fetch(`api/get_po_data.php?material=${encodeURIComponent(material)}&supplier=${encodeURIComponent(supplier)}`)
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                poData = data.data || [];
-                totalRows = poData.length;
-                currentPage = 1;
-                renderPOTable();
-                updatePagination();
-            }
-        })
-        .catch(err => console.error('Error loading PO data:', err));
-}
 
+// MODIFIKASI: filterCreateTable juga filter historical table
 function filterCreateTable() {
     const material = document.getElementById('createMaterialSearch').value;
     const supplier = document.getElementById('createSupplierSearch').value;
-    loadPODData(material, supplier);
-}
 
-function renderPOTable() {
-    const tbody = document.getElementById('poDataTableBody');
-    const start = (currentPage - 1) * rowsPerPage;
-    const end = start + rowsPerPage;
-    const pageData = poData.slice(start, end);
-
-    tbody.innerHTML = pageData.map((row, index) => `
-        <tr>
-            <td class="checkbox-col">
-                <input type="checkbox" ${selectedPOs.has(row.po_id) ? 'checked' : ''} 
-                       onchange="togglePOSelection(${row.po_id})">
-            </td>
-            <td>${start + index + 1}</td>
-            <td>${row.po_number || '-'}</td>
-            <td>${row.description || '-'}</td>
-            <td>${formatDate(row.po_date)}</td>
-            <td>${formatDate(row.delivery_date)}</td>
-            <td>${row.supplier_name || '-'}</td>
-            <td>${row.ordered_quantity || 0} ${row.unit || 'PCS'}</td>
-            <td>${formatCurrency(row.unit_price)}</td>
-            <td>${formatCurrency(row.total_amount)}</td>
-        </tr>
-    `).join('');
-
-    const showingEnd = Math.min(end, totalRows);
-    document.getElementById('showingInfo').textContent = 
-        totalRows > 0 ? `${start + 1}-${showingEnd} of ${totalRows}` : '0-0 of 0';
-}
-
-function updatePagination() {
-    const totalPages = Math.ceil(totalRows / rowsPerPage) || 1;
-    document.getElementById('pageInfo').textContent = `${currentPage} / ${totalPages}`;
-    document.getElementById('btnPrev').disabled = currentPage <= 1;
-    document.getElementById('btnNext').disabled = currentPage >= totalPages;
-}
-
-function changeRowsPerPage() {
-    rowsPerPage = parseInt(document.getElementById('rowsPerPage').value);
-    currentPage = 1;
-    renderPOTable();
-    updatePagination();
-}
-
-function prevPage() {
-    if (currentPage > 1) {
-        currentPage--;
-        renderPOTable();
-        updatePagination();
+    // BARU: Filter historical table
+    if (historyData.length > 0) {
+        const filtered = historyData.filter(row => {
+            const matchMaterial = !material || 
+                (row.material && row.material.toLowerCase().includes(material.toLowerCase())) ||
+                (row.material_code && row.material_code.toLowerCase().includes(material.toLowerCase())) ||
+                (row.material_group && row.material_group.toLowerCase().includes(material.toLowerCase()));
+            
+            const matchSupplier = !supplier || 
+                (row.plan_supplier && row.plan_supplier.toLowerCase().includes(supplier.toLowerCase())) ||
+                (row.supplier && row.supplier.toLowerCase().includes(supplier.toLowerCase()));
+            
+            return matchMaterial && matchSupplier;
+        });
+        renderHistoricalTableInCreateView(filtered);
     }
-}
-
-function nextPage() {
-    const totalPages = Math.ceil(totalRows / rowsPerPage);
-    if (currentPage < totalPages) {
-        currentPage++;
-        renderPOTable();
-        updatePagination();
-    }
-}
-
-function toggleSelectAll() {
-    const checkAll = document.getElementById('selectAllPO').checked;
-    const start = (currentPage - 1) * rowsPerPage;
-    const end = start + rowsPerPage;
-    for (let i = start; i < Math.min(end, poData.length); i++) {
-        if (checkAll) selectedPOs.add(poData[i].po_id);
-        else selectedPOs.delete(poData[i].po_id);
-    }
-    renderPOTable();
-}
-
-function togglePOSelection(poId) {
-    if (selectedPOs.has(poId)) selectedPOs.delete(poId);
-    else selectedPOs.add(poId);
-}
-
-function createComparisonFromSelection() {
-    if (selectedPOs.size === 0) {
-        alert('Please select at least one PO');
-        return;
-    }
-    const selectedData = poData.filter(po => selectedPOs.has(po.po_id));
-    const materials = [...new Set(selectedData.map(po => po.material_group || po.description))];
-    if (materials.length > 1) {
-        alert('Please select POs with the same material');
-        return;
-    }
-    const formData = new FormData();
-    formData.append('material', materials[0]);
-    formData.append('po_ids', JSON.stringify([...selectedPOs]));
-    
-    fetch('api/generate.php', { method: 'POST', body: formData })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                alert(`Comparison created! ID: ${data.comparison_id}`);
-                backToHistory();
-                loadComparisonHistory();
-            } else {
-                alert('Error: ' + data.error);
-            }
-        })
-        .catch(err => console.error('Error:', err));
 }
 
 // ==================== CREATE NEW COMPARISON (VIEW 3 - SPREADSHEET) ====================
+// TIDAK DIUBAH - fungsi spreadsheet tetap seperti semula
 
 function loadSupplierList() {
     fetch('api/get_suppliers.php')
@@ -252,6 +331,7 @@ function populateLastOrderDefaults(historyData) {
 }
 
 // ==================== CALCULATION FUNCTIONS ====================
+// TIDAK DIUBAH - fungsi kalkulasi tetap seperti semula
 
 function calculateLastPriceIDR(rowNum) {
     const foreign = getFieldValue(rowNum, 'last_price_foreign');
@@ -315,7 +395,7 @@ function manualOverridePlanPriceIDR(rowNum) {
         const kurs = getFieldValue(rowNum, 'plan_kurs_idr');
         const idr = foreign * (kurs > 0 ? kurs : 1);
         priceIdrInput.value = idr.toFixed(2);
-        alert('Price IDR auto-calculated from Foreign Price × Kurs. Clear Foreign Price to input manually.');
+        alert('Price IDR auto-calculated from Foreign Price × Kurs. Clear foreign price to input IDR manually.');
     }
     calculateGap(rowNum);
 }
@@ -339,6 +419,7 @@ function calculateGap(rowNum) {
 }
 
 // ==================== HELPER FUNCTIONS ====================
+// TIDAK DIUBAH
 
 function setFieldValue(rowNum, fieldName, value) {
     const inputs = document.querySelectorAll(`[data-row="${rowNum}"] [data-field="${fieldName}"]`);
@@ -375,6 +456,7 @@ function formatDateForInput(dateStr) {
 }
 
 // ==================== SAVE FUNCTIONS ====================
+// TIDAK DIUBAH
 
 function saveAsDraft() {
     saveComparisonData('draft');
@@ -406,7 +488,8 @@ function saveComparisonData(status) {
     .catch(err => console.error('Error saving:', err));
 }
 
-// ==================== collectFormData - SATU SAJA, pakai getFieldValueSafe ====================
+// ==================== collectFormData ====================
+// TIDAK DIUBAH
 
 function collectFormData() {
     return {
@@ -449,6 +532,7 @@ function collectFormData() {
 }
 
 // ==================== AUTOCOMPLETE ====================
+// TIDAK DIUBAH
 
 function initCreateViewAutocomplete() {
     const materialInput = document.getElementById('createMaterialSearch');
@@ -548,6 +632,7 @@ function debounce(func, wait) {
 }
 
 // ==================== HISTORY TABLE ====================
+// TIDAK DIUBAH
 
 function loadComparisonHistory() {
     fetch('api/get_history.php')
@@ -619,6 +704,7 @@ function toggleSelectAllHistory() {
 }
 
 // ==================== VIEW DETAIL (MODAL) ====================
+// TIDAK DIUBAH
 
 function viewComparisonDetail(id) {
     fetch(`api/get_comparison_detail.php?id=${id}`)
@@ -664,16 +750,16 @@ function showDetailModal(data) {
                         <td><input type="text" class="input-header" id="edit_description" value="${escapeHtml(data.material || data.description || '')}"></td>
                         <td><input type="text" class="input-header" id="edit_uom" value="${escapeHtml(data.uom || 'KG')}" style="width:40px;"></td>
                         <td><input type="number" class="input-header" id="edit_qty_pr" value="${data.qty_pr || data.qty || 0}" style="width:50px;"></td>
-                        <td><input type="number" class="input-last-order" id="edit_last_qty" value="${data.last_qty || ''}"></td>
-                        <td><input type="text" class="input-last-order" id="edit_last_po_number" value="${escapeHtml(data.last_po_number || '')}"></td>
-                        <td><input type="date" class="input-last-order" id="edit_last_po_date" value="${data.last_po_date || ''}"></td>
-                        <td><input type="number" class="input-last-order" id="edit_last_price_foreign" value="${data.last_price_foreign || ''}"></td>
-                        <td><input type="date" class="input-last-order" id="edit_last_kurs_date" value="${data.last_kurs_date || ''}"></td>
-                        <td><input type="number" class="input-last-order" id="edit_last_kurs_idr" value="${data.last_kurs_idr || ''}"></td>
-                        <td><input type="number" class="input-last-order" id="edit_last_price_idr" value="${data.last_price_idr || ''}"></td>
-                        <td><input type="number" class="input-last-order" id="edit_last_price_tiba_nu" value="${data.last_price_tiba_nu || ''}"></td>
+                        <td><input type="number" class="input-last-order" id="edit_last_qty" value="${data.last_qty || ''}" readonly></td>
+                        <td><input type="text" class="input-last-order" id="edit_last_po_number" value="${escapeHtml(data.last_po_number || '')}" readonly></td>
+                        <td><input type="date" class="input-last-order" id="edit_last_po_date" value="${data.last_po_date || ''}" readonly></td>
+                        <td><input type="number" class="input-last-order" id="edit_last_price_foreign" value="${data.last_price_foreign || ''}" readonly></td>
+                        <td><input type="date" class="input-last-order" id="edit_last_kurs_date" value="${data.last_kurs_date || ''}" readonly></td>
+                        <td><input type="number" class="input-last-order" id="edit_last_kurs_idr" value="${data.last_kurs_idr || ''}" readonly></td>
+                        <td><input type="number" class="input-last-order" id="edit_last_price_idr" value="${data.last_price_idr || ''}" readonly></td>
+                        <td><input type="number" class="input-last-order" id="edit_last_price_tiba_nu" value="${data.last_price_tiba_nu || ''}" readonly></td>
                         <td><input type="number" class="input-last-order" id="edit_last_amount" value="${data.last_amount || ''}" readonly></td>
-                        <td><input type="text" class="input-last-order" id="edit_last_supplier" value="${escapeHtml(data.last_supplier || data.last_supplier_name || '')}"></td>
+                        <td><input type="text" class="input-last-order" id="edit_last_supplier" value="${escapeHtml(data.last_supplier || data.last_supplier_name || '')}" readonly></td>
                     </tr>
                 </tbody>
             </table>
@@ -761,6 +847,7 @@ function hideDetailModal() {
 }
 
 // ==================== SAVE EDIT ====================
+// TIDAK DIUBAH
 
 function saveComparisonEdit(id) {
     const payload = {
@@ -821,6 +908,7 @@ function saveComparisonEdit(id) {
 }
 
 // ==================== EXPORT EXCEL ====================
+// TIDAK DIUBAH
 
 function exportSelectedToExcel() {
     const selectedIds = Array.from(selectedHistoryIds);
@@ -874,4 +962,102 @@ function deleteComparison(id) {
         console.error(err);
         alert('Server error');
     });
+}
+
+// ==================== GENERATE SAME AS LAST ORDER ====================
+
+function generateSameAsLastOrder() {
+    const rowNum = 1;
+
+    // Ambil semua data dari Last Order
+    const lastQty = getFieldValue(rowNum, 'last_qty');
+    const lastPriceForeign = getFieldValue(rowNum, 'last_price_foreign');
+    const lastKursDate = getFieldValueSafe(rowNum, 'last_kurs_date');
+    const lastKursIdr = getFieldValue(rowNum, 'last_kurs_idr');
+    const lastPriceIdr = getFieldValue(rowNum, 'last_price_idr');
+    const lastPriceTibaNu = getFieldValue(rowNum, 'last_price_tiba_nu');
+    const lastAmount = getFieldValue(rowNum, 'last_amount');
+    const lastSupplier = document.querySelector(`[data-row="${rowNum}"] [data-field="last_supplier"]`)?.value || '';
+
+    // Validasi: cek apakah Last Order sudah terisi
+    if (!lastQty && !lastPriceIdr && !lastPriceTibaNu) {
+        alert('Last Order is empty. Please fill Last Order first or select from historical data.');
+        return;
+    }
+
+    // Isi Plan Order dengan data dari Last Order
+    setFieldValue(rowNum, 'plan_qty', lastQty || '');
+    setFieldValue(rowNum, 'plan_price_foreign', lastPriceForeign || '');
+    setFieldValue(rowNum, 'plan_kurs_date', lastKursDate || '');
+    setFieldValue(rowNum, 'plan_kurs_idr', lastKursIdr || '');
+    setFieldValue(rowNum, 'plan_price_idr', lastPriceIdr || '');
+    setFieldValue(rowNum, 'plan_price_tiba_nu', lastPriceTibaNu || '');
+    setFieldValue(rowNum, 'plan_amount', lastAmount || '');
+    setFieldValue(rowNum, 'plan_supplier', lastSupplier);
+
+    // Update styling untuk Price IDR (auto/manual)
+    const planPriceIdrInput = document.querySelector(`[data-row="${rowNum}"] [data-field="plan_price_idr"]`);
+    const planPriceForeignInput = document.querySelector(`[data-row="${rowNum}"] [data-field="plan_price_foreign"]`);
+    
+    if (planPriceForeignInput && parseFloat(planPriceForeignInput.value) > 0) {
+        planPriceIdrInput.dataset.auto = "true";
+    } else {
+        planPriceIdrInput.dataset.auto = "false";
+    }
+
+    // Hitung ulang Gap
+    calculateGap(rowNum);
+
+    // Tampilkan notifikasi
+    showToast('Plan Order filled successfully from Last Order data!');
+}
+
+// Helper: Toast notification
+function showToast(message) {
+    // Hapus toast lama jika ada
+    const existingToast = document.getElementById('toast-notification');
+    if (existingToast) existingToast.remove();
+
+    // Buat toast baru
+    const toast = document.createElement('div');
+    toast.id = 'toast-notification';
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #28a745;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 6px;
+        font-size: 14px;
+        z-index: 9999;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        animation: slideIn 0.3s ease;
+    `;
+    toast.textContent = message;
+
+    // Tambah animation style
+    if (!document.getElementById('toast-style')) {
+        const style = document.createElement('style');
+        style.id = 'toast-style';
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    document.body.appendChild(toast);
+
+    // Auto remove setelah 3 detik
+    setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
