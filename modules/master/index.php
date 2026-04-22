@@ -9,6 +9,7 @@ checkAuth(['admin']);
 <head>
     <meta charset="UTF-8">
     <title>Master Data | E-Purch</title>
+    <link rel="icon" type="image/png" href="../../assets/images/inaco_logo-removebg-preview.png">
     <link rel="stylesheet" href="../../assets/css/dashboard.css">
     <link rel="stylesheet" href="../../assets/css/modules.css">
 </head>
