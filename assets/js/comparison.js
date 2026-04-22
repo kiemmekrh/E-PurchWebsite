@@ -591,6 +591,11 @@ function renderComparisonTable(data) {
             <td>${formatDate(row.delivery_date)}</td>
             <td>
                 <button class="btn btn-small btn-primary" onclick="viewComparisonDetail(${row.comparison_id})">View</button>
+                <button class="btn btn-small" 
+                    style="background:#dc3545;color:white;margin-left:5px;"
+                    onclick="deleteComparison(${row.comparison_id})">
+                    Delete
+                </button>
             </td>
         </tr>
     `).join('');
@@ -842,4 +847,31 @@ function exportSelectedToExcel() {
         a.remove();
     })
     .catch(err => console.error('Export error:', err));
+}
+
+function deleteComparison(id) {
+    if (!confirm(`Delete comparison #${id}?`)) return;
+
+    fetch('api/delete_comparison.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: id })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('Deleted successfully');
+            
+            // hapus dari state biar ga reload full juga bisa
+            historyData = historyData.filter(item => item.comparison_id != id);
+            renderComparisonTable(historyData);
+            
+        } else {
+            alert('Error: ' + (data.error || 'Delete failed'));
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Server error');
+    });
 }
