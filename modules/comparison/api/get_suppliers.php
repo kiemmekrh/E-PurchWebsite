@@ -7,8 +7,12 @@ require_once '../../../config/database.php';
 
 header('Content-Type: application/json');
 
-$stmt = $pdo->query("SELECT supplier_id, supplier_code, supplier_name FROM Supplier ORDER BY supplier_name");
-$suppliers = $stmt->fetchAll();
-
-echo json_encode(['success' => true, 'data' => $suppliers]);
+try {
+    $stmt = $pdo->query("SELECT supplier_id, supplier_code, supplier_name FROM Supplier ORDER BY supplier_name");
+    $suppliers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    echo json_encode(['success' => true, 'data' => $suppliers]);
+} catch (PDOException $e) {
+    error_log('get_suppliers error: ' . $e->getMessage());
+    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+}
 ?>

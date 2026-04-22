@@ -1,5 +1,5 @@
 <?php
-// File: modules/comparison/api/save_comparison.php
+// File: modules/comparison/api/update_comparison.php
 session_start();
 require_once '../../../auth/check_session.php';
 checkAuth(['purchasing_staff', 'admin', 'manager']);
@@ -10,61 +10,70 @@ header('Content-Type: application/json');
 $data = json_decode(file_get_contents('php://input'), true);
 
 function toDate($value) {
-    if (empty($value) || $value === '' || $value === '0000-00-00') {
-        return null;
-    }
-    return $value;
+    return (empty($value) || $value === '0000-00-00') ? null : $value;
 }
 
 function toNumber($value) {
-    if (empty($value) || $value === '') {
-        return 0;
-    }
-    return floatval($value);
+    return (empty($value) || $value === '') ? 0 : floatval($value);
 }
 
 try {
     $pdo->beginTransaction();
 
     $stmt = $pdo->prepare("
-        INSERT INTO Comparison_Table (
-            comparison_date, created_by, pr_number, material_code, material_group, 
-            description, uom, qty_pr, plan_quantity,
-            last_qty, last_po_number, last_po_date, last_price_foreign, 
-            last_kurs_date, last_kurs_idr, last_price_idr, last_price_tiba_nu, 
-            last_amount, last_supplier_id, last_supplier_name,
-            plan_qty, plan_price_foreign, plan_kurs_date, plan_kurs_idr,
-            plan_price_idr, plan_price_tiba_nu, plan_amount, plan_supplier_id, plan_supplier_name,
-            gap_price, gap_percent,
-            awarded_po_date, awarded_deliv_date, awarded_po_number,
-            awarded_supplier_id, awarded_supplier_name,
-            awarded_amount, awarded_keterangan,
-            status
-        ) VALUES (
-            CURDATE(), :created_by, :pr_number, :material_code, :material_group, 
-            :description, :uom, :qty_pr, :plan_quantity,
-            :last_qty, :last_po_number, :last_po_date, :last_price_foreign, 
-            :last_kurs_date, :last_kurs_idr, :last_price_idr, :last_price_tiba_nu, 
-            :last_amount, :last_supplier_id, :last_supplier_name,
-            :plan_qty, :plan_price_foreign, :plan_kurs_date, :plan_kurs_idr,
-            :plan_price_idr, :plan_price_tiba_nu, :plan_amount, :plan_supplier_id, :plan_supplier_name,
-            :gap_price, :gap_percent,
-            :awarded_po_date, :awarded_deliv_date, :awarded_po_number,
-            :awarded_supplier_id, :awarded_supplier_name,
-            :awarded_amount, :awarded_keterangan,
-            :status
-        )
+        UPDATE Comparison_Table SET
+            pr_number = :pr_number,
+            material_code = :material_code,
+            material_group = :material_group,
+            description = :description,
+            uom = :uom,
+            qty_pr = :qty_pr,
+            
+            last_qty = :last_qty,
+            last_po_number = :last_po_number,
+            last_po_date = :last_po_date,
+            last_price_foreign = :last_price_foreign,
+            last_kurs_date = :last_kurs_date,
+            last_kurs_idr = :last_kurs_idr,
+            last_price_idr = :last_price_idr,
+            last_price_tiba_nu = :last_price_tiba_nu,
+            last_amount = :last_amount,
+            last_supplier_id = :last_supplier_id,
+            last_supplier_name = :last_supplier_name,
+            
+            plan_qty = :plan_qty,
+            plan_price_foreign = :plan_price_foreign,
+            plan_kurs_date = :plan_kurs_date,
+            plan_kurs_idr = :plan_kurs_idr,
+            plan_price_idr = :plan_price_idr,
+            plan_price_tiba_nu = :plan_price_tiba_nu,
+            plan_amount = :plan_amount,
+            plan_supplier_id = :plan_supplier_id,
+            plan_supplier_name = :plan_supplier_name,
+            
+            gap_price = :gap_price,
+            gap_percent = :gap_percent,
+            
+            awarded_po_date = :awarded_po_date,
+            awarded_deliv_date = :awarded_deliv_date,
+            awarded_po_number = :awarded_po_number,
+            awarded_supplier_id = :awarded_supplier_id,
+            awarded_supplier_name = :awarded_supplier_name,
+            awarded_amount = :awarded_amount,
+            awarded_keterangan = :awarded_keterangan,
+            
+            updated_at = NOW()
+        WHERE comparison_id = :comparison_id
     ");
 
     $stmt->execute([
-        ':created_by' => $_SESSION['user_id'],
+        ':comparison_id' => $data['comparison_id'],
         ':pr_number' => $data['pr_number'] ?? '',
         ':material_code' => $data['material_code'] ?? '',
         ':material_group' => $data['material_group'] ?? $data['description'] ?? '',
         ':description' => $data['description'] ?? '',
         ':uom' => $data['uom'] ?? 'KG',
         ':qty_pr' => toNumber($data['qty_pr'] ?? 0),
-        ':plan_quantity' => toNumber($data['plan_qty'] ?? 0),
         
         ':last_qty' => toNumber($data['last_qty'] ?? 0),
         ':last_po_number' => $data['last_po_number'] ?? '',
@@ -97,25 +106,14 @@ try {
         ':awarded_supplier_id' => null,
         ':awarded_supplier_name' => $data['awarded_supplier'] ?? '',
         ':awarded_amount' => toNumber($data['awarded_amount'] ?? 0),
-        ':awarded_keterangan' => $data['awarded_keterangan'] ?? '',
-        
-        ':status' => $data['status'] ?? 'draft'
+        ':awarded_keterangan' => $data['awarded_keterangan'] ?? ''
     ]);
 
-    $comparisonId = $pdo->lastInsertId();
     $pdo->commit();
-
-    echo json_encode([
-        'success' => true,
-        'comparison_id' => $comparisonId,
-        'message' => 'Comparison saved successfully'
-    ]);
+    echo json_encode(['success' => true, 'message' => 'Updated successfully']);
 
 } catch (Exception $e) {
     $pdo->rollBack();
-    echo json_encode([
-        'success' => false, 
-        'error' => $e->getMessage()
-    ]);
+    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }
 ?>
