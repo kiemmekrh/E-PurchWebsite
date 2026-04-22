@@ -83,6 +83,95 @@ CREATE TABLE Comparison_Table (
     plan_quantity DECIMAL(15,2),
     FOREIGN KEY (created_by) REFERENCES User(user_id)
 );
+ALTER TABLE Comparison_Table
+ADD COLUMN material_code VARCHAR(50) NULL AFTER created_by,
+ADD COLUMN uom VARCHAR(20) NULL AFTER description,
+ADD COLUMN qty_pr DECIMAL(15,2) NULL AFTER uom,
+ALTER TABLE Comparison_Table
+ADD COLUMN material_code VARCHAR(50) NULL AFTER created_by,
+ADD COLUMN uom VARCHAR(20) NULL AFTER description,
+ADD COLUMN qty_pr DECIMAL(15,2) NULL AFTER uom,
+
+-- Last Order
+ADD COLUMN last_qty DECIMAL(15,2) NULL AFTER qty_pr,
+ADD COLUMN last_po_number VARCHAR(50) NULL AFTER last_qty,
+ADD COLUMN last_po_date DATE NULL AFTER last_po_number,
+ADD COLUMN last_price_foreign DECIMAL(15,2) NULL AFTER last_po_date,
+ADD COLUMN last_kurs_date DATE NULL AFTER last_price_foreign,
+ADD COLUMN last_kurs_idr DECIMAL(15,2) NULL AFTER last_kurs_date,
+ADD COLUMN last_price_idr DECIMAL(15,2) NULL AFTER last_kurs_idr,
+ADD COLUMN last_price_tiba_nu DECIMAL(15,2) NULL AFTER last_price_idr,
+ADD COLUMN last_amount DECIMAL(15,2) NULL AFTER last_price_tiba_nu,
+ADD COLUMN last_supplier_id INT NULL AFTER last_amount,
+
+-- Plan Order
+ADD COLUMN plan_qty DECIMAL(15,2) NULL AFTER last_supplier_id,
+ADD COLUMN plan_price_foreign DECIMAL(15,2) NULL AFTER plan_qty,
+ADD COLUMN plan_kurs_date DATE NULL AFTER plan_price_foreign,
+ADD COLUMN plan_kurs_idr DECIMAL(15,2) NULL AFTER plan_kurs_date,
+ADD COLUMN plan_price_idr DECIMAL(15,2) NULL AFTER plan_kurs_idr,
+ADD COLUMN plan_price_tiba_nu DECIMAL(15,2) NULL AFTER plan_price_idr,
+ADD COLUMN plan_amount DECIMAL(15,2) NULL AFTER plan_price_tiba_nu,
+ADD COLUMN plan_supplier_id INT NULL AFTER plan_amount,
+
+-- Gap
+ADD COLUMN gap_price DECIMAL(15,2) NULL AFTER plan_supplier_id,
+ADD COLUMN gap_percent DECIMAL(5,2) NULL AFTER gap_price,
+
+-- Awarded
+ADD COLUMN awarded_po_date DATE NULL AFTER gap_percent,
+ADD COLUMN awarded_deliv_date DATE NULL AFTER awarded_po_date,
+ADD COLUMN awarded_po_number VARCHAR(50) NULL AFTER awarded_deliv_date,
+ADD COLUMN awarded_supplier_id INT NULL AFTER awarded_po_number,
+ADD COLUMN awarded_amount DECIMAL(15,2) NULL AFTER awarded_supplier_id,
+ADD COLUMN awarded_keterangan TEXT NULL AFTER awarded_amount,
+
+-- Status
+ADD COLUMN status VARCHAR(20) DEFAULT 'draft' AFTER awarded_keterangan;
+
+ALTER TABLE Comparison_Table
+ADD COLUMN last_supplier_name VARCHAR(150) NULL AFTER last_supplier_id,
+ADD COLUMN plan_supplier_name VARCHAR(150) NULL AFTER plan_supplier_id,
+ADD COLUMN awarded_supplier_name VARCHAR(150) NULL AFTER awarded_supplier_id;
+
+ALTER TABLE Comparison_Table ADD COLUMN pr_number VARCHAR(50) NULL AFTER comparison_date;
+
+-- Last Order
+ADD COLUMN last_qty DECIMAL(15,2) NULL AFTER qty_pr,
+ADD COLUMN last_po_number VARCHAR(50) NULL AFTER last_qty,
+ADD COLUMN last_po_date DATE NULL AFTER last_po_number,
+ADD COLUMN last_price_foreign DECIMAL(15,2) NULL AFTER last_po_date,
+ADD COLUMN last_kurs_date DATE NULL AFTER last_price_foreign,
+ADD COLUMN last_kurs_idr DECIMAL(15,2) NULL AFTER last_kurs_date,
+ADD COLUMN last_price_idr DECIMAL(15,2) NULL AFTER last_kurs_idr,
+ADD COLUMN last_price_tiba_nu DECIMAL(15,2) NULL AFTER last_price_idr,
+ADD COLUMN last_amount DECIMAL(15,2) NULL AFTER last_price_tiba_nu,
+ADD COLUMN last_supplier_id INT NULL AFTER last_amount,
+
+-- Plan Order
+ADD COLUMN plan_qty DECIMAL(15,2) NULL AFTER last_supplier_id,
+ADD COLUMN plan_price_foreign DECIMAL(15,2) NULL AFTER plan_qty,
+ADD COLUMN plan_kurs_date DATE NULL AFTER plan_price_foreign,
+ADD COLUMN plan_kurs_idr DECIMAL(15,2) NULL AFTER plan_kurs_date,
+ADD COLUMN plan_price_idr DECIMAL(15,2) NULL AFTER plan_kurs_idr,
+ADD COLUMN plan_price_tiba_nu DECIMAL(15,2) NULL AFTER plan_price_idr,
+ADD COLUMN plan_amount DECIMAL(15,2) NULL AFTER plan_price_tiba_nu,
+ADD COLUMN plan_supplier_id INT NULL AFTER plan_amount,
+
+-- Gap
+ADD COLUMN gap_price DECIMAL(15,2) NULL AFTER plan_supplier_id,
+ADD COLUMN gap_percent DECIMAL(5,2) NULL AFTER gap_price,
+
+-- Awarded
+ADD COLUMN awarded_po_date DATE NULL AFTER gap_percent,
+ADD COLUMN awarded_deliv_date DATE NULL AFTER awarded_po_date,
+ADD COLUMN awarded_po_number VARCHAR(50) NULL AFTER awarded_deliv_date,
+ADD COLUMN awarded_supplier_id INT NULL AFTER awarded_po_number,
+ADD COLUMN awarded_amount DECIMAL(15,2) NULL AFTER awarded_supplier_id,
+ADD COLUMN awarded_keterangan TEXT NULL AFTER awarded_amount,
+
+-- Status
+ADD COLUMN status VARCHAR(20) DEFAULT 'draft' AFTER awarded_keterangan;
 
 -- Comparison Detail Table
 CREATE TABLE Comparison_Detail (
@@ -97,6 +186,7 @@ CREATE TABLE Comparison_Detail (
     FOREIGN KEY (comparison_id) REFERENCES Comparison_Table(comparison_id) ON DELETE CASCADE,
     FOREIGN KEY (supplier_id) REFERENCES Supplier(supplier_id)
 );
+
 
 -- Activity Log Table
 CREATE TABLE Activity_Log (
