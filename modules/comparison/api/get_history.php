@@ -12,8 +12,8 @@ try {
         SELECT 
             ct.comparison_id,
             ct.comparison_date as table_created_date,
-            ct.pr_number,                    -- ← PR Number (terpisah)
-            ct.awarded_po_number as po_number,  -- ← PO Number (dari awarded)
+            ct.pr_number,
+            ct.awarded_po_number as po_number,
             ct.awarded_po_date as po_date,
             ct.awarded_deliv_date as delivery_date,
             ct.material_code,
@@ -22,6 +22,7 @@ try {
             ct.qty_pr as qty,
             ct.plan_qty,
             ct.plan_price_idr as price,
+            ct.plan_price_tiba_nu,
             ct.plan_amount as amount,
             ct.plan_supplier_name as plan_supplier,
             ct.status,
