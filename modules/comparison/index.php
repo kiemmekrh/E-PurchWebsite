@@ -9,6 +9,7 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
 <head>
     <meta charset="UTF-8">
     <title>Supplier Comparison | E-Purch</title>
+    <link rel="icon" type="image/png" href="../../assets/images/inaco_logo-removebg-preview.png">
     <link rel="stylesheet" href="../../assets/css/dashboard.css">
     <link rel="stylesheet" href="../../assets/css/modules.css">
     <style>
@@ -290,6 +291,72 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             border: 1px solid #e0e0e0;
             border-radius: 8px;
         }
+
+        /* Row yang bisa diklik di historical table */
+        .historical-row {
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .historical-row:hover {
+            background: #e3f2fd !important;
+        }
+        .historical-row.selected {
+            background: #bbdefb !important;
+        }
+
+        /* Info box untuk menunjukkan row yang dipilih */
+        .selected-info {
+            background: #e3f2fd;
+            border: 1px solid #90caf9;
+            border-radius: 6px;
+            padding: 10px 15px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            color: #1565c0;
+            display: none;
+        }
+        .selected-info.active {
+            display: block;
+        }
+
+        /* Tombol use selected */
+        .btn-use-selected {
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+        .btn-use-selected:hover { background: #357abd; }
+        .btn-use-selected:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        /* Tombol Generate Same as Last Order */
+        .btn-generate-same {
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-generate-same:hover {
+            background: #357abd;
+        }
+        .btn-generate-same:active {
+            transform: translateY(1px);
+        }
+
+        /* Toast notification */
+        #toast-notification {
+            font-family: inherit;
+        }
     </style>
 </head>
 <body>
@@ -396,10 +463,11 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             <div class="page-header" style="margin-bottom: 20px;">
                 <div>
                     <h1 class="page-title">Create Comparison Table</h1>
-                    <p class="welcome-text">Select materials and suppliers to compare</p>
+                    <p class="welcome-text">Select historical comparison to use as Last Order, then input Plan Order</p>
                 </div>
             </div>
 
+            <!-- Filter Section -->
             <div class="filter-section">
                 <div class="filter-group">
                     <label>Material Name / Code</label>
@@ -414,49 +482,45 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
                 <button class="btn-filter" onclick="filterCreateTable()">Filter</button>
             </div>
 
-            <div class="data-table-container">
-                <button class="btn-create-inline" onclick="createComparisonFromSelection()">
-                    + Create Comparison Table
-                </button>
-                
-                <table class="data-table" id="poDataTable">
+            <!-- ===== HISTORICAL COMPARISONS TABLE (tetap tampil di bawah filter) ===== -->
+            <div class="data-table-container" style="margin-bottom: 20px;">
+                <div class="table-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3 class="table-title">Historical Comparisons</h3>
+                    <button class="btn-use-selected" id="btnUseSelected" onclick="useSelectedHistorical()" disabled>
+                        Use Selected as Last Order →
+                    </button>
+                </div>
+                <div class="selected-info" id="selectedInfo">
+                    Selected: <strong id="selectedMaterial">-</strong> | Supplier: <strong id="selectedSupplier">-</strong> | Qty: <strong id="selectedQty">-</strong>
+                </div>
+                <div class="historical-table-wrapper"> 
+                <table class="data-table" id="historicalTableInCreate">
                     <thead>
                         <tr>
-                            <th class="checkbox-col"><input type="checkbox" id="selectAllPO" onchange="toggleSelectAll()"></th>
-                            <th>#</th>
-                            <th>PO</th>
-                            <th>DESCRIPTION</th>
+                            <th class="checkbox-col"></th>
+                            <th>COMPARISON ID</th>
+                            <th>PR NUMBER</th>
+                            <th>PO NUMBER</th>
                             <th>PO DATE</th>
-                            <th>DELIV. DATE</th>
-                            <th>SUPPLIER</th>
+                            <th>DATE</th>
+                            <th>MATERIAL</th>
                             <th>QTY</th>
                             <th>PRICE</th>
                             <th>AMOUNT</th>
+                            <th>SUPPLIER</th>
+                            <th>DELIVERY DATE</th>
                         </tr>
                     </thead>
-                    <tbody id="poDataTableBody"><!-- Loaded via AJAX --></tbody>
+                    <tbody id="historicalTableInCreateBody">
+                        <!-- Loaded via AJAX -->
+                    </tbody>
                 </table>
-                
-                <div class="table-footer">
-                    <span id="showingInfo">1-10 of 0</span>
-                    <div class="pagination">
-                        <span>Rows per page: 
-                            <select id="rowsPerPage" onchange="changeRowsPerPage()">
-                                <option value="10">10</option>
-                                <option value="25">25</option>
-                                <option value="50">50</option>
-                            </select>
-                        </span>
-                        <span id="pageInfo">1 / 1</span>
-                        <button onclick="prevPage()" id="btnPrev" disabled>&lt;</button>
-                        <button onclick="nextPage()" id="btnNext" disabled>&gt;</button>
-                    </div>
                 </div>
             </div>
-            <p class="note-text">* based on history</p>
         </div>
 
         <!-- ========== VIEW 3: Create New Comparison Table (Spreadsheet) ========== -->
+        <!-- INI TIDAK DIUBAH - tetap seperti semula -->
         <div class="create-view" id="newComparisonView">
             <button class="back-btn" onclick="backToHistory()">← Back to History</button>
             
@@ -465,6 +529,13 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
                     <h1 class="page-title">Create New Comparison Table</h1>
                     <p class="welcome-text">Fill in all columns. Gap will be calculated automatically.</p>
                 </div>
+            </div>
+            <!-- ===== TOMBOL GENERATE SAME AS LAST ORDER ===== -->
+            <div style="margin-bottom: 15px; text-align: right;">
+                <button class="btn btn-primary btn-small" onclick="generateSameAsLastOrder()" 
+                        style="background: #4a90e2; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; cursor: pointer;">
+                    🔄 Generate Same as Last Order
+                </button>
             </div>
 
             <!-- Comparison Spreadsheet -->
