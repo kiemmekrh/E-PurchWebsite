@@ -691,3 +691,15 @@ body {
         width: 100%;
     }
 }
+.comparison-spreadsheet {
+    table-layout: auto;
+    width: max-content;
+}
+
+.input-header,
+.input-last-order,
+.input-plan {
+    width: auto;
+    min-width: 80px;
+    max-width: none;
+}
