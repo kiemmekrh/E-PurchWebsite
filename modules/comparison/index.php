@@ -17,7 +17,7 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
         .create-view.active { display: block; }
         .history-view { display: block; }
         .history-view.hidden { display: none; }
-        
+
         .filter-section {
             background: #fff;
             border: 1px solid #e0e0e0;
@@ -28,7 +28,7 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             gap: 15px;
             align-items: flex-end;
         }
-        .filter-group { flex: 1; }
+        .filter-group { flex: 1; position: relative; }
         .filter-group label {
             display: block;
             font-size: 12px;
@@ -55,7 +55,7 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             height: fit-content;
         }
         .btn-filter:hover { background: #218838; }
-        
+
         .btn-create-inline {
             background: #4a90e2;
             color: white;
@@ -66,7 +66,7 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             cursor: pointer;
             margin-bottom: 15px;
         }
-        
+
         .table-footer {
             display: flex;
             justify-content: space-between;
@@ -100,7 +100,7 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             opacity: 0.5;
             cursor: not-allowed;
         }
-        
+
         .note-text {
             font-size: 12px;
             color: #888;
@@ -118,6 +118,7 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             text-transform: uppercase;
             color: #555;
             padding: 12px;
+            white-space: nowrap;
         }
         .data-table td {
             padding: 12px;
@@ -125,7 +126,7 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             border-bottom: 1px solid #f0f0f0;
         }
         .data-table tbody tr:hover { background: #f8f9fa; }
-        
+
         .back-btn {
             background: none;
             border: 1px solid #ddd;
@@ -144,13 +145,13 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             border-radius: 8px;
             background: white;
         }
-        
+
         .comparison-spreadsheet {
             width: 100%;
             border-collapse: collapse;
             font-size: 11px;
         }
-        
+
         .comparison-spreadsheet th,
         .comparison-spreadsheet td {
             border: 1px solid #bbb;
@@ -158,34 +159,34 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             text-align: center;
             min-width: 70px;
         }
-        
+
         .section-header th {
             background: #e0e0e0;
             font-weight: 700;
             font-size: 12px;
             padding: 6px;
         }
-        
+
         .sub-header th {
             background: #f5f5f5;
             font-size: 10px;
             font-weight: 600;
             padding: 4px;
         }
-        
+
         /* Section Headers */
         .header-last-order { background: #e8e8e8 !important; color: #333; }
         .header-plan { background: #e3f2fd !important; color: #1565c0; }
         .header-gap { background: #ffcc80 !important; color: #e65100; }
         .header-awarded { background: #fff59d !important; color: #f57f17; }
-        
+
         /* Column Backgrounds */
         .col-header { background: #fafafa; }
         .col-last-order { background: #f5f5f5; }
         .col-plan { background: #e8f4fd; }
         .col-gap { background: #ffe0b2; }
         .col-awarded { background: #fff9c4; }
-        
+
         /* Input Styles */
         .input-header,
         .input-last-order,
@@ -200,7 +201,7 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             outline: none;
             box-sizing: border-box;
         }
-        
+
         /* Header inputs - WHITE */
         .input-header {
             background: white;
@@ -209,8 +210,8 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             border-color: #4a90e2;
             box-shadow: 0 0 0 1px rgba(74, 144, 226, 0.3);
         }
-        
-        /* Last Order inputs - WHITE (editable) */
+
+        /* Last Order inputs - WHITE (editable di New, readonly di Create) */
         .input-last-order {
             background: white;
         }
@@ -218,7 +219,12 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             border-color: #666;
             box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
         }
-        
+        .input-last-order[readonly] {
+            background: #e8e8e8 !important;
+            cursor: not-allowed;
+            color: #666;
+        }
+
         /* Plan Order inputs - WHITE (editable) */
         .input-plan {
             background: white;
@@ -227,7 +233,7 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             border-color: #1565c0;
             box-shadow: 0 0 0 1px rgba(21, 101, 192, 0.3);
         }
-        
+
         /* GAP inputs - GRAY (readonly/auto) */
         .input-gap {
             background: #e0e0e0;
@@ -235,7 +241,7 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             border: 1px solid #bbb;
             color: #555;
         }
-        
+
         /* Awarded inputs - YELLOW TINT (editable) */
         .input-awarded {
             background: #fffde7;
@@ -245,46 +251,45 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             border-color: #f57f17;
             box-shadow: 0 0 0 1px rgba(245, 127, 23, 0.3);
         }
-        
+
         /* Price IDR - Auto (gray when foreign exists, white when empty) */
         .input-last-order[data-auto="true"],
         .input-plan[data-auto="true"] {
             background: #e8e8e8 !important;
             cursor: default;
         }
-        
+
         .btn-warning {
             background: #ffeb3b;
             color: #333;
             border: 1px solid #fdd835;
         }
         .btn-warning:hover { background: #fdd835; }
-        
+
         .btn-large {
             padding: 10px 28px;
             font-size: 14px;
         }
-        
+
         .data-row:hover td { background: #f0f7ff; }
-        
+
         .notes {
             margin-top: 15px;
             font-size: 11px;
             color: #666;
         }
         .notes p { margin: 2px 0; }
-        /* Scroll horizontal untuk tabel */
+
         .data-table-container {
             overflow-x: auto;
             max-width: 100%;
         }
 
         .data-table {
-            min-width: 1400px; /* Atur sesuai kebutuhan */
+            min-width: 1400px;
             width: max-content;
         }
 
-        /* Atau kalau mau lebih smooth */
         .historical-table-wrapper {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
@@ -335,7 +340,7 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             background: #ccc;
             cursor: not-allowed;
         }
-        /* Tombol Generate Same as Last Order */
+
         .btn-generate-same {
             background: #4a90e2;
             color: white;
@@ -353,7 +358,6 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             transform: translateY(1px);
         }
 
-        /* Tombol Clear Table */
         .btn-clear-table {
             background: #dc3545;
             color: white;
@@ -372,36 +376,39 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             transform: translateY(1px);
         }
 
-        /* Toast notification */
         #toast-notification {
             font-family: inherit;
         }
 
-        /* Tombol Clear Table */
-        .btn-clear-table {
-            background: #dc3545;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 13px;
+        .autocomplete-list {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 0 0 6px 6px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .autocomplete-list div {
+            padding: 8px 12px;
             cursor: pointer;
-            transition: background 0.2s;
-            margin-left: 8px;
+            font-size: 13px;
         }
-        .btn-clear-table:hover {
-            background: #c82333;
-        }
-        .btn-clear-table:active {
-            transform: translateY(1px);
+        .autocomplete-list div:hover {
+            background: #f0f7ff;
         }
     </style>
 </head>
 <body>
     <?php include '../../includes/sidebar.php'; ?>
-    
+
     <main class="main-content">
-        
+
         <!-- ========== VIEW 1: Comparison Table History (Default) ========== -->
         <div class="history-view" id="historyView">
             <div class="page-header">
@@ -422,45 +429,6 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
                 </div>
             </div>
 
-            <!-- Create Comparison Form (Hidden by default) -->
-            <div class="comparison-form" id="createForm" style="display: none;">
-                <h3>Create New Comparison</h3>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Material Name / Code *</label>
-                        <input type="text" id="materialSearch" class="form-input" placeholder="Search material..." autocomplete="off">
-                        <div class="autocomplete-list" id="materialSuggestions"></div>
-                    </div>
-                    <div class="form-group">
-                        <label>Supplier (Optional)</label>
-                        <select id="supplierFilter" class="form-input">
-                            <option value="">All Suppliers</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Comparison Date Range</label>
-                        <div style="display: flex; gap: 10px;">
-                            <input type="date" id="dateFrom" class="form-input">
-                            <input type="date" id="dateTo" class="form-input">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Plan Quantity</label>
-                        <input type="number" id="planQty" class="form-input" placeholder="Enter planned quantity">
-                    </div>
-                </div>
-                <div style="display: flex; gap: 10px; margin-top: 20px;">
-                    <button class="btn btn-primary btn-small" onclick="generateComparison()">
-                        Generate Comparison
-                    </button>
-                    <button class="btn btn-secondary btn-small" onclick="hideCreateComparison()">
-                        Cancel
-                    </button>
-                </div>
-            </div>
-
             <!-- History Results -->
             <div class="data-table-container" id="resultsContainer">
                 <div class="table-header">
@@ -475,8 +443,8 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
                     <tr>
                         <th class="checkbox-col"><input type="checkbox" id="selectAllHistory" onchange="toggleSelectAllHistory()"></th>
                         <th>COMPARISON ID</th>
-                        <th>PR NUMBER</th>      <!-- TAMBAH -->
-                        <th>PO NUMBER</th>      <!-- PO Awarded -->
+                        <th>PR NUMBER</th>
+                        <th>PO NUMBER</th>
                         <th>PO DATE</th>
                         <th>DATE</th>
                         <th>MATERIAL</th>
@@ -494,10 +462,10 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             </div>
         </div>
 
-        <!-- ========== VIEW 2: Create Comparison Table ========== -->
+        <!-- ========== VIEW 2: Create Comparison Table (dengan History) ========== -->
         <div class="create-view" id="createView">
             <button class="back-btn" onclick="backToHistory()">← Back to History</button>
-            
+
             <div class="page-header" style="margin-bottom: 20px;">
                 <div>
                     <h1 class="page-title">Create Comparison Table</h1>
@@ -520,7 +488,7 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
                 <button class="btn-filter" onclick="filterCreateTable()">Filter</button>
             </div>
 
-            <!-- ===== HISTORICAL COMPARISONS TABLE (tetap tampil di bawah filter) ===== -->
+            <!-- HISTORICAL COMPARISONS TABLE -->
             <div class="data-table-container" style="margin-bottom: 20px;">
                 <div class="table-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                     <h3 class="table-title">Historical Comparisons</h3>
@@ -557,32 +525,198 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             </div>
         </div>
 
-        <!-- ========== VIEW 3: Create New Comparison Table (Spreadsheet) ========== -->
-        <!-- INI TIDAK DIUBAH - tetap seperti semula -->
-        <div class="create-view" id="newComparisonView">
+        <!-- ========== VIEW 3: Spreadsheet Create Comparison Table (dengan Last Order dari History) ========== -->
+        <div class="create-view" id="spreadsheetCreateView">
             <button class="back-btn" onclick="backToHistory()">← Back to History</button>
-            
+
             <div class="page-header" style="margin-bottom: 20px;">
                 <div>
-                    <h1 class="page-title">Create New Comparison Table</h1>
-                    <p class="welcome-text">Fill in all columns. Gap will be calculated automatically.</p>
+                    <h1 class="page-title">Create Comparison Table</h1>
+                    <p class="welcome-text">Last Order diisi otomatis dari history. Plan Order bisa diisi manual. Gap dihitung otomatis.</p>
                 </div>
             </div>
-            <!-- ===== TOMBOL GENERATE SAME AS LAST ORDER ===== -->
+
             <div style="margin-bottom: 15px; text-align: right;">
                 <button class="btn btn-primary btn-small" onclick="generateSameAsLastOrder()" 
                         style="background: #4a90e2; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; cursor: pointer;">
                     🔄 Generate Same as Last Order
                 </button>
-                <button class="btn-clear-table" onclick="clearComparisonTable()" title="Kosongkan semua data di tabel">
+                <button class="btn-clear-table" onclick="clearComparisonTable('spreadsheetCreateView')" title="Kosongkan semua data di tabel">
                     🗑️ Clear Table
                 </button>
             </div>
 
             <!-- Comparison Spreadsheet -->
             <div class="comparison-spreadsheet-container">
-                
-                <!-- ===== LAST ORDER SECTION ===== -->
+
+                <!-- LAST ORDER SECTION -->
+                <table class="comparison-spreadsheet" id="createComparisonTable">
+                    <thead>
+                        <tr class="section-header">
+                            <th rowspan="2">No</th>
+                            <th rowspan="2">PR</th>
+                            <th rowspan="2">Material<br>Code</th>
+                            <th rowspan="2">Description</th>
+                            <th rowspan="2">UOM</th>
+                            <th rowspan="2">Qty<br>PR</th>
+                            <th colspan="10" class="header-last-order">LAST ORDER</th>
+                        </tr>
+                        <tr class="sub-header">
+                            <th class="col-last-order">QTY</th>
+                            <th class="col-last-order">No PO</th>
+                            <th class="col-last-order">Tgl PO</th>
+                            <th class="col-last-order">Price<br>(CNY/USD/SGD)</th>
+                            <th class="col-last-order">Tgl<br>Kurs</th>
+                            <th class="col-last-order">Nilai Kurs<br>(IDR)</th>
+                            <th class="col-last-order">Price<br>(IDR)</th>
+                            <th class="col-last-order">Price TIBA<br>DI NU (IDR)</th>
+                            <th class="col-last-order">Amount<br>(IDR)</th>
+                            <th class="col-last-order">Supplier</th>
+                        </tr>
+                    </thead>
+                    <tbody id="createComparisonBody">
+                        <tr class="data-row" data-row="1">
+                            <td class="col-header">1</td>
+                            <td class="col-header"><input type="text" class="input-header" data-field="pr_number" placeholder="PR..."></td>
+                            <td class="col-header"><input type="text" class="input-header" data-field="material_code" placeholder="Code..."></td>
+                            <td class="col-header"><input type="text" class="input-header" data-field="description" placeholder="Desc..."></td>
+                            <td class="col-header"><input type="text" class="input-header" data-field="uom" value="KG" style="width:40px;"></td>
+                            <td class="col-header"><input type="text" inputmode="decimal" class="input-header" data-field="qty_pr" value="5" style="width:50px;"></td>
+
+                            <!-- Last Order - READONLY (diisi dari history) -->
+                            <td class="col-last-order"><input type="text" class="input-last-order" data-field="last_qty" readonly tabindex="-1"></td>
+                            <td class="col-last-order"><input type="text" class="input-last-order" data-field="last_po_number" readonly tabindex="-1"></td>
+                            <td class="col-last-order"><input type="date" class="input-last-order" data-field="last_po_date" readonly tabindex="-1"></td>
+                            <td class="col-last-order"><input type="text" class="input-last-order" data-field="last_price_foreign" readonly tabindex="-1"></td>
+                            <td class="col-last-order"><input type="date" class="input-last-order" data-field="last_kurs_date" readonly tabindex="-1"></td>
+                            <td class="col-last-order"><input type="text" class="input-last-order" data-field="last_kurs_idr" readonly tabindex="-1"></td>
+                            <td class="col-last-order"><input type="text" class="input-last-order" data-field="last_price_idr" readonly tabindex="-1"></td>
+                            <td class="col-last-order"><input type="text" class="input-last-order" data-field="last_price_tiba_nu" readonly tabindex="-1"></td>
+                            <td class="col-last-order"><input type="text" class="input-last-order" data-field="last_amount" readonly tabindex="-1"></td>
+                            <td class="col-last-order"><input type="text" class="input-last-order" data-field="last_supplier" readonly tabindex="-1"></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- PLAN ORDER SECTION -->
+                <table class="comparison-spreadsheet" style="margin-top: 0; border-top: none;">
+                    <thead>
+                        <tr class="section-header">
+                            <th colspan="8" class="header-plan">PLAN ORDER</th>
+                        </tr>
+                        <tr class="sub-header">
+                            <th class="col-plan">QTY</th>
+                            <th class="col-plan">Price<br>(CNY/USD/SGD)</th>
+                            <th class="col-plan">Tgl<br>Kurs</th>
+                            <th class="col-plan">Nilai Kurs<br>(IDR)</th>
+                            <th class="col-plan">Price<br>(IDR)</th>
+                            <th class="col-plan">TIBA DI NU<br>(IDR)</th>
+                            <th class="col-plan">Amount<br>(IDR)</th>
+                            <th class="col-plan">Supplier</th>
+                        </tr>
+                    </thead>
+                    <tbody id="createPlanOrderBody">
+                        <tr class="data-row" data-row="1">
+                            <!-- Plan Order - ALL EDITABLE -->
+                            <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_qty" onchange="calculatePlanAmount(1, 'create')"></td>
+                            <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_price_foreign" onchange="calculatePlanPriceIDR(1, 'create')"></td>
+                            <td class="col-plan"><input type="date" class="input-plan" data-field="plan_kurs_date"></td>
+                            <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_kurs_idr" onchange="calculatePlanPriceIDR(1, 'create')"></td>
+                            <!-- Price IDR: Bisa manual atau auto -->
+                            <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_price_idr" onchange="manualOverridePlanPriceIDR(1, 'create')"></td>
+                            <!-- TIBA DI NU: Auto dari Price IDR -->
+                            <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_price_tiba_nu" onchange="calculatePlanAmount(1, 'create')" readonly tabindex="-1"></td>
+                            <!-- Amount: Auto QTY × TIBA DI NU -->
+                            <td class="col-plan"><input type="text" class="input-plan" data-field="plan_amount" readonly tabindex="-1"></td>
+                            <td class="col-plan"><input type="text" class="input-plan" data-field="plan_supplier" list="supplierList"></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- GAP SECTION -->
+                <table class="comparison-spreadsheet" style="margin-top: 0; border-top: none;">
+                    <thead>
+                        <tr class="section-header">
+                            <th colspan="2" class="header-gap">GAP (Auto-calculated)</th>
+                        </tr>
+                        <tr class="sub-header">
+                            <th class="col-gap">Price<br>(IDR)</th>
+                            <th class="col-gap">%</th>
+                        </tr>
+                    </thead>
+                    <tbody id="createGapBody">
+                        <tr class="data-row" data-row="1">
+                            <td class="col-gap"><input type="text" class="input-gap" data-field="gap_price" readonly tabindex="-1"></td>
+                            <td class="col-gap"><input type="text" class="input-gap" data-field="gap_percent" readonly tabindex="-1"></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- AWARDED SECTION -->
+                <table class="comparison-spreadsheet" style="margin-top: 0; border-top: none;">
+                    <thead>
+                        <tr class="section-header">
+                            <th colspan="6" class="header-awarded">AWARDED (Final Selection)</th>
+                        </tr>
+                        <tr class="sub-header">
+                            <th class="col-awarded">Tgl PO</th>
+                            <th class="col-awarded">Deliv.<br>Schedule</th>
+                            <th class="col-awarded">No PO</th>
+                            <th class="col-awarded">Supplier</th>
+                            <th class="col-awarded">Amount<br>(IDR)</th>
+                            <th class="col-awarded">Keterangan</th>
+                        </tr>
+                    </thead>
+                    <tbody id="createAwardedBody">
+                        <tr class="data-row" data-row="1">
+                            <td class="col-awarded"><input type="date" class="input-awarded" data-field="awarded_po_date"></td>
+                            <td class="col-awarded"><input type="date" class="input-awarded" data-field="awarded_deliv_date"></td>
+                            <td class="col-awarded"><input type="text" class="input-awarded" data-field="awarded_po_number"></td>
+                            <td class="col-awarded"><input type="text" class="input-awarded" data-field="awarded_supplier" list="supplierList"></td>
+                            <td class="col-awarded"><input type="text" inputmode="decimal" class="input-awarded" data-field="awarded_amount"></td>
+                            <td class="col-awarded"><input type="text" class="input-awarded" data-field="awarded_keterangan"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <datalist id="supplierList"></datalist>
+
+            <div class="action-buttons" style="margin-top: 20px; display: flex; gap: 10px; justify-content: center;">
+                <button class="btn btn-secondary btn-large" onclick="backToHistory()">Cancel</button>
+                <button class="btn btn-warning btn-large" onclick="saveAsDraft('create')">Save as Draft</button>
+                <button class="btn btn-primary btn-large" onclick="saveComparison('create')">Save</button>
+            </div>
+
+            <div class="notes">
+                <p>* Gray columns (GAP) will be generated automatically from Last Order and Plan Order data</p>
+                <p>* Price (IDR) auto-calculated if Price (CNY/USD/SGD) is filled. Clear foreign price to input IDR manually.</p>
+                <p>* Price TIBA DI NU (IDR) auto-filled from Price (IDR)</p>
+                <p>* Amount (IDR) = QTY × Price TIBA DI NU (IDR), read-only</p>
+            </div>
+        </div>
+
+        <!-- ========== VIEW 4: Create New Comparison Table (Spreadsheet Manual - Tanpa History) ========== -->
+        <div class="create-view" id="newComparisonView">
+            <button class="back-btn" onclick="backToHistory()">← Back to History</button>
+
+            <div class="page-header" style="margin-bottom: 20px;">
+                <div>
+                    <h1 class="page-title">Create New Comparison Table</h1>
+                    <p class="welcome-text">Fill in all columns manually. Gap will be calculated automatically.</p>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 15px; text-align: right;">
+                <button class="btn-clear-table" onclick="clearComparisonTable('newComparisonView')" title="Kosongkan semua data di tabel">
+                    🗑️ Clear Table
+                </button>
+            </div>
+
+            <!-- Comparison Spreadsheet -->
+            <div class="comparison-spreadsheet-container">
+
+                <!-- LAST ORDER SECTION -->
                 <table class="comparison-spreadsheet" id="newComparisonTable">
                     <thead>
                         <tr class="section-header">
@@ -609,31 +743,32 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
                     </thead>
                     <tbody id="newComparisonBody">
                         <tr class="data-row" data-row="1">
-                            <!-- Header columns - WHITE (editable) -->
                             <td class="col-header">1</td>
                             <td class="col-header"><input type="text" class="input-header" data-field="pr_number" placeholder="PR..."></td>
                             <td class="col-header"><input type="text" class="input-header" data-field="material_code" placeholder="Code..."></td>
                             <td class="col-header"><input type="text" class="input-header" data-field="description" placeholder="Desc..."></td>
                             <td class="col-header"><input type="text" class="input-header" data-field="uom" value="KG" style="width:40px;"></td>
-                            <td class="col-header"><input type="number" class="input-header" data-field="qty_pr" value="5" style="width:50px;"></td>
-                            
-                            <!-- Last Order - ALL WHITE (editable) -->
-                            <td class="col-last-order"><input type="number" class="input-last-order" data-field="last_qty" onchange="calculateLastAmount(1)"></td>
+                            <td class="col-header"><input type="text" inputmode="decimal" class="input-header" data-field="qty_pr" value="5" style="width:50px;"></td>
+
+                            <!-- Last Order - ALL EDITABLE (manual mode) -->
+                            <td class="col-last-order"><input type="text" inputmode="decimal" class="input-last-order" data-field="last_qty" onchange="calculateLastAmount(1, 'new')"></td>
                             <td class="col-last-order"><input type="text" class="input-last-order" data-field="last_po_number"></td>
                             <td class="col-last-order"><input type="date" class="input-last-order" data-field="last_po_date"></td>
-                            <td class="col-last-order"><input type="number" class="input-last-order" data-field="last_price_foreign" onchange="calculateLastPriceIDR(1)"></td>
+                            <td class="col-last-order"><input type="text" inputmode="decimal" class="input-last-order" data-field="last_price_foreign" onchange="calculateLastPriceIDR(1, 'new')"></td>
                             <td class="col-last-order"><input type="date" class="input-last-order" data-field="last_kurs_date"></td>
-                            <td class="col-last-order"><input type="number" class="input-last-order" data-field="last_kurs_idr" onchange="calculateLastPriceIDR(1)"></td>
-                            <!-- Price IDR: Auto jika foreign ada, manual jika kosong -->
-                            <td class="col-last-order"><input type="number" class="input-last-order" data-field="last_price_idr" onchange="manualOverrideLastPriceIDR(1)"></td>
-                            <td class="col-last-order"><input type="number" class="input-last-order" data-field="last_price_tiba_nu" onchange="calculateLastAmount(1)"></td>
-                            <td class="col-last-order"><input type="number" class="input-last-order" data-field="last_amount" readonly tabindex="-1"></td>
+                            <td class="col-last-order"><input type="text" inputmode="decimal" class="input-last-order" data-field="last_kurs_idr" onchange="calculateLastPriceIDR(1, 'new')"></td>
+                            <!-- Price IDR: Bisa manual atau auto -->
+                            <td class="col-last-order"><input type="text" inputmode="decimal" class="input-last-order" data-field="last_price_idr" onchange="manualOverrideLastPriceIDR(1, 'new')"></td>
+                            <!-- TIBA DI NU: Auto dari Price IDR -->
+                            <td class="col-last-order"><input type="text" inputmode="decimal" class="input-last-order" data-field="last_price_tiba_nu" onchange="calculateLastAmount(1, 'new')" readonly tabindex="-1"></td>
+                            <!-- Amount: Auto QTY × TIBA DI NU -->
+                            <td class="col-last-order"><input type="text" class="input-last-order" data-field="last_amount" readonly tabindex="-1"></td>
                             <td class="col-last-order"><input type="text" class="input-last-order" data-field="last_supplier" list="supplierList"></td>
                         </tr>
                     </tbody>
                 </table>
 
-                <!-- ===== PLAN ORDER SECTION ===== -->
+                <!-- PLAN ORDER SECTION -->
                 <table class="comparison-spreadsheet" style="margin-top: 0; border-top: none;">
                     <thead>
                         <tr class="section-header">
@@ -650,23 +785,25 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
                             <th class="col-plan">Supplier</th>
                         </tr>
                     </thead>
-                    <tbody id="planOrderBody">
+                    <tbody id="newPlanOrderBody">
                         <tr class="data-row" data-row="1">
-                            <!-- Plan Order - ALL WHITE (editable) -->
-                            <td class="col-plan"><input type="number" class="input-plan" data-field="plan_qty" onchange="calculatePlanAmount(1)"></td>
-                            <td class="col-plan"><input type="number" class="input-plan" data-field="plan_price_foreign" onchange="calculatePlanPriceIDR(1)"></td>
+                            <!-- Plan Order - ALL EDITABLE -->
+                            <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_qty" onchange="calculatePlanAmount(1, 'new')"></td>
+                            <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_price_foreign" onchange="calculatePlanPriceIDR(1, 'new')"></td>
                             <td class="col-plan"><input type="date" class="input-plan" data-field="plan_kurs_date"></td>
-                            <td class="col-plan"><input type="number" class="input-plan" data-field="plan_kurs_idr" onchange="calculatePlanPriceIDR(1)"></td>
-                            <!-- Price IDR: Auto jika foreign ada, manual jika kosong -->
-                            <td class="col-plan"><input type="number" class="input-plan" data-field="plan_price_idr" onchange="manualOverridePlanPriceIDR(1)"></td>
-                            <td class="col-plan"><input type="number" class="input-plan" data-field="plan_price_tiba_nu" onchange="calculatePlanAmount(1)"></td>
-                            <td class="col-plan"><input type="number" class="input-plan" data-field="plan_amount" readonly tabindex="-1"></td>
+                            <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_kurs_idr" onchange="calculatePlanPriceIDR(1, 'new')"></td>
+                            <!-- Price IDR: Bisa manual atau auto -->
+                            <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_price_idr" onchange="manualOverridePlanPriceIDR(1, 'new')"></td>
+                            <!-- TIBA DI NU: Auto dari Price IDR -->
+                            <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_price_tiba_nu" onchange="calculatePlanAmount(1, 'new')" readonly tabindex="-1"></td>
+                            <!-- Amount: Auto QTY × TIBA DI NU -->
+                            <td class="col-plan"><input type="text" class="input-plan" data-field="plan_amount" readonly tabindex="-1"></td>
                             <td class="col-plan"><input type="text" class="input-plan" data-field="plan_supplier" list="supplierList"></td>
                         </tr>
                     </tbody>
                 </table>
 
-                <!-- ===== GAP SECTION (AUTO - READONLY) ===== -->
+                <!-- GAP SECTION -->
                 <table class="comparison-spreadsheet" style="margin-top: 0; border-top: none;">
                     <thead>
                         <tr class="section-header">
@@ -677,16 +814,15 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
                             <th class="col-gap">%</th>
                         </tr>
                     </thead>
-                    <tbody id="gapBody">
+                    <tbody id="newGapBody">
                         <tr class="data-row" data-row="1">
-                            <!-- GAP - GRAY (readonly, auto-calculated) -->
-                            <td class="col-gap"><input type="number" class="input-gap" data-field="gap_price" readonly tabindex="-1"></td>
-                            <td class="col-gap"><input type="number" class="input-gap" data-field="gap_percent" readonly tabindex="-1"></td>
+                            <td class="col-gap"><input type="text" class="input-gap" data-field="gap_price" readonly tabindex="-1"></td>
+                            <td class="col-gap"><input type="text" class="input-gap" data-field="gap_percent" readonly tabindex="-1"></td>
                         </tr>
                     </tbody>
                 </table>
 
-                <!-- ===== AWARDED SECTION ===== -->
+                <!-- AWARDED SECTION -->
                 <table class="comparison-spreadsheet" style="margin-top: 0; border-top: none;">
                     <thead>
                         <tr class="section-header">
@@ -701,33 +837,32 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
                             <th class="col-awarded">Keterangan</th>
                         </tr>
                     </thead>
-                    <tbody id="awardedBody">
+                    <tbody id="newAwardedBody">
                         <tr class="data-row" data-row="1">
-                            <!-- AWARDED - YELLOW TINT (editable) -->
                             <td class="col-awarded"><input type="date" class="input-awarded" data-field="awarded_po_date"></td>
                             <td class="col-awarded"><input type="date" class="input-awarded" data-field="awarded_deliv_date"></td>
                             <td class="col-awarded"><input type="text" class="input-awarded" data-field="awarded_po_number"></td>
                             <td class="col-awarded"><input type="text" class="input-awarded" data-field="awarded_supplier" list="supplierList"></td>
-                            <td class="col-awarded"><input type="number" class="input-awarded" data-field="awarded_amount"></td>
+                            <td class="col-awarded"><input type="text" inputmode="decimal" class="input-awarded" data-field="awarded_amount"></td>
                             <td class="col-awarded"><input type="text" class="input-awarded" data-field="awarded_keterangan"></td>
                         </tr>
                     </tbody>
                 </table>
             </div>
 
-            <!-- Supplier Datalist -->
-            <datalist id="supplierList"></datalist>
+            <datalist id="newSupplierList"></datalist>
 
-            <!-- Action Buttons -->
             <div class="action-buttons" style="margin-top: 20px; display: flex; gap: 10px; justify-content: center;">
                 <button class="btn btn-secondary btn-large" onclick="backToHistory()">Cancel</button>
-                <button class="btn btn-warning btn-large" onclick="saveAsDraft()">Save as Draft</button>
-                <button class="btn btn-primary btn-large" onclick="saveComparison()">Save</button>
+                <button class="btn btn-warning btn-large" onclick="saveAsDraft('new')">Save as Draft</button>
+                <button class="btn btn-primary btn-large" onclick="saveComparison('new')">Save</button>
             </div>
 
             <div class="notes">
                 <p>* Gray columns (GAP) will be generated automatically from Last Order and Plan Order data</p>
                 <p>* Price (IDR) auto-calculated if Price (CNY/USD/SGD) is filled. Clear foreign price to input IDR manually.</p>
+                <p>* Price TIBA DI NU (IDR) auto-filled from Price (IDR)</p>
+                <p>* Amount (IDR) = QTY × Price TIBA DI NU (IDR), read-only</p>
             </div>
         </div>
 
@@ -747,64 +882,6 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
         </div>
     </main>
 
-    <script src="../../assets/js/comparison.js">
-
-    // ===== CLEAR TABLE FUNCTION =====
-    function clearComparisonTable() {
-        if (!confirm('Apakah Anda yakin ingin mengosongkan semua data di tabel?')) {
-            return;
-        }
-
-        // Clear all inputs in the comparison table
-        const allInputs = document.querySelectorAll('#newComparisonView input[type="text"], #newComparisonView input[type="number"], #newComparisonView input[type="date"]');
-
-        allInputs.forEach(input => {
-            // Don't clear readonly inputs (they're auto-calculated)
-            if (input.readOnly) return;
-
-            // Reset to default values or empty
-            const field = input.getAttribute('data-field');
-
-            if (field === 'uom') {
-                input.value = 'KG';
-            } else if (field === 'qty_pr') {
-                input.value = '5';
-            } else {
-                input.value = '';
-            }
-
-            // Remove auto-calculated styling
-            input.removeAttribute('data-auto');
-        });
-
-        // Reset auto-calculated fields (GAP, Amount, etc.)
-        const autoInputs = document.querySelectorAll('#newComparisonView input[readonly]');
-        autoInputs.forEach(input => {
-            input.value = '';
-        });
-
-        // Show notification
-        showToast('Tabel berhasil dikosongkan', 'success');
-    }
-
-    // Simple toast notification function
-    function showToast(message, type = 'success') {
-        let toast = document.getElementById('toast-notification');
-        if (!toast) {
-            toast = document.createElement('div');
-            toast.id = 'toast-notification';
-            toast.style.cssText = 'position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:6px;color:white;font-size:13px;z-index:9999;transition:all 0.3s;opacity:0;';
-            document.body.appendChild(toast);
-        }
-
-        toast.style.background = type === 'success' ? '#28a745' : '#dc3545';
-        toast.textContent = message;
-        toast.style.opacity = '1';
-
-        setTimeout(() => {
-            toast.style.opacity = '0';
-        }, 2500);
-    }
-</script>
+    <script src="../../assets/js/comparison.js"></script>
 </body>
 </html>
