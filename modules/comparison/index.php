@@ -353,9 +353,47 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             transform: translateY(1px);
         }
 
+        /* Tombol Clear Table */
+        .btn-clear-table {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-left: 8px;
+        }
+        .btn-clear-table:hover {
+            background: #c82333;
+        }
+        .btn-clear-table:active {
+            transform: translateY(1px);
+        }
+
         /* Toast notification */
         #toast-notification {
             font-family: inherit;
+        }
+
+        /* Tombol Clear Table */
+        .btn-clear-table {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-left: 8px;
+        }
+        .btn-clear-table:hover {
+            background: #c82333;
+        }
+        .btn-clear-table:active {
+            transform: translateY(1px);
         }
     </style>
 </head>
@@ -536,6 +574,9 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
                         style="background: #4a90e2; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; cursor: pointer;">
                     🔄 Generate Same as Last Order
                 </button>
+                <button class="btn-clear-table" onclick="clearComparisonTable()" title="Kosongkan semua data di tabel">
+                    🗑️ Clear Table
+                </button>
             </div>
 
             <!-- Comparison Spreadsheet -->
@@ -706,6 +747,64 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
         </div>
     </main>
 
-    <script src="../../assets/js/comparison.js"></script>
+    <script src="../../assets/js/comparison.js">
+
+    // ===== CLEAR TABLE FUNCTION =====
+    function clearComparisonTable() {
+        if (!confirm('Apakah Anda yakin ingin mengosongkan semua data di tabel?')) {
+            return;
+        }
+
+        // Clear all inputs in the comparison table
+        const allInputs = document.querySelectorAll('#newComparisonView input[type="text"], #newComparisonView input[type="number"], #newComparisonView input[type="date"]');
+
+        allInputs.forEach(input => {
+            // Don't clear readonly inputs (they're auto-calculated)
+            if (input.readOnly) return;
+
+            // Reset to default values or empty
+            const field = input.getAttribute('data-field');
+
+            if (field === 'uom') {
+                input.value = 'KG';
+            } else if (field === 'qty_pr') {
+                input.value = '5';
+            } else {
+                input.value = '';
+            }
+
+            // Remove auto-calculated styling
+            input.removeAttribute('data-auto');
+        });
+
+        // Reset auto-calculated fields (GAP, Amount, etc.)
+        const autoInputs = document.querySelectorAll('#newComparisonView input[readonly]');
+        autoInputs.forEach(input => {
+            input.value = '';
+        });
+
+        // Show notification
+        showToast('Tabel berhasil dikosongkan', 'success');
+    }
+
+    // Simple toast notification function
+    function showToast(message, type = 'success') {
+        let toast = document.getElementById('toast-notification');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'toast-notification';
+            toast.style.cssText = 'position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:6px;color:white;font-size:13px;z-index:9999;transition:all 0.3s;opacity:0;';
+            document.body.appendChild(toast);
+        }
+
+        toast.style.background = type === 'success' ? '#28a745' : '#dc3545';
+        toast.textContent = message;
+        toast.style.opacity = '1';
+
+        setTimeout(() => {
+            toast.style.opacity = '0';
+        }, 2500);
+    }
+</script>
 </body>
 </html>
