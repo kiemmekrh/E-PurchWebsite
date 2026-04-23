@@ -1029,3 +1029,61 @@ document.addEventListener("input", function(e) {
         autoResizeInput(e.target);
     }
 });
+
+// ============================================
+// DI FILE: assets/js/comparison.js
+// ============================================
+
+// ============================================
+// DI FILE: assets/js/comparison.js
+// Update baris 1052 dan 1065
+// ============================================
+
+// ============================================
+// PERBAIKAN PATH EXPORT CSV
+// ============================================
+
+function exportSelectedToExcel(filename = "comparison_export.csv") {
+    const table = document.getElementById("comparisonTable");
+
+    let csv = [];
+
+    const rows = table.querySelectorAll("tr");
+
+    rows.forEach(row => {
+        let cols = row.querySelectorAll("th, td");
+        let rowData = [];
+
+        cols.forEach(col => {
+
+            // skip checkbox column
+            if (col.querySelector("input[type='checkbox']")) return;
+
+            let text = "";
+
+            // ambil dari input kalau ada
+            const input = col.querySelector("input");
+            if (input) {
+                text = input.value;
+            } else {
+                text = col.innerText;
+            }
+
+            text = text.replace(/\n/g, " ").trim();
+            text = text.replace(/"/g, '""');
+
+            rowData.push(`"${text}"`);
+        });
+
+        if (rowData.length > 0) {
+            csv.push(rowData.join(","));
+        }
+    });
+
+    const blob = new Blob([csv.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+}
