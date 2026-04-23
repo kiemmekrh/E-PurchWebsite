@@ -1061,3 +1061,62 @@ function showToast(message) {
         setTimeout(() => toast.remove(), 300);
     }, 3000);
 }
+
+// ==================== CLEAR TABLE ====================
+
+function clearComparisonTable() {
+    if (!confirm('Apakah Anda yakin ingin mengosongkan semua data di tabel?')) {
+        return;
+    }
+
+    const rowNum = 1;
+
+    // Header columns - reset to defaults
+    setFieldValue(rowNum, 'pr_number', '');
+    setFieldValue(rowNum, 'material_code', '');
+    setFieldValue(rowNum, 'description', '');
+    setFieldValue(rowNum, 'uom', 'KG');
+    setFieldValue(rowNum, 'qty_pr', '5');
+
+    // Last Order columns
+    setFieldValue(rowNum, 'last_qty', '');
+    setFieldValue(rowNum, 'last_po_number', '');
+    setFieldValue(rowNum, 'last_po_date', '');
+    setFieldValue(rowNum, 'last_price_foreign', '');
+    setFieldValue(rowNum, 'last_kurs_date', '');
+    setFieldValue(rowNum, 'last_kurs_idr', '');
+    setFieldValue(rowNum, 'last_price_idr', '');
+    setFieldValue(rowNum, 'last_price_tiba_nu', '');
+    setFieldValue(rowNum, 'last_amount', '');
+    setFieldValue(rowNum, 'last_supplier', '');
+
+    // Plan Order columns
+    setFieldValue(rowNum, 'plan_qty', '');
+    setFieldValue(rowNum, 'plan_price_foreign', '');
+    setFieldValue(rowNum, 'plan_kurs_date', '');
+    setFieldValue(rowNum, 'plan_kurs_idr', '');
+    setFieldValue(rowNum, 'plan_price_idr', '');
+    setFieldValue(rowNum, 'plan_price_tiba_nu', '');
+    setFieldValue(rowNum, 'plan_amount', '');
+    setFieldValue(rowNum, 'plan_supplier', '');
+
+    // GAP columns (readonly)
+    setFieldValue(rowNum, 'gap_price', '');
+    setFieldValue(rowNum, 'gap_percent', '');
+
+    // Awarded columns
+    setFieldValue(rowNum, 'awarded_po_date', '');
+    setFieldValue(rowNum, 'awarded_deliv_date', '');
+    setFieldValue(rowNum, 'awarded_po_number', '');
+    setFieldValue(rowNum, 'awarded_supplier', '');
+    setFieldValue(rowNum, 'awarded_amount', '');
+    setFieldValue(rowNum, 'awarded_keterangan', '');
+
+    // Remove data-auto attributes from Price IDR inputs
+    const lastPriceIdr = document.querySelector(`[data-row="${rowNum}"] [data-field="last_price_idr"]`);
+    const planPriceIdr = document.querySelector(`[data-row="${rowNum}"] [data-field="plan_price_idr"]`);
+    if (lastPriceIdr) lastPriceIdr.removeAttribute('data-auto');
+    if (planPriceIdr) planPriceIdr.removeAttribute('data-auto');
+
+    showToast('Tabel berhasil dikosongkan!');
+}
