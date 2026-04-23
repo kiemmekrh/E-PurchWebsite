@@ -33,9 +33,9 @@ if ($type === 'material') {
     // Search suppliers
     $stmt = $pdo->prepare("
         SELECT supplier_id as value, 
-               CONCAT(supplier_code, ' - ', supplier_name) as label
+               CONCAT(supplier_name) as label
         FROM Supplier
-        WHERE supplier_name LIKE ? OR supplier_code LIKE ?
+        WHERE supplier_name
         LIMIT 10
     ");
     $stmt->execute(["%$q%", "%$q%"]);

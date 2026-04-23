@@ -21,7 +21,7 @@ if (!empty($material)) {
 }
 
 if (!empty($supplier)) {
-    $where[] = "(s.supplier_name LIKE ? OR s.supplier_code LIKE ?)";
+    $where[] = "(s.supplier_name)";
     $params[] = "%$supplier%";
     $params[] = "%$supplier%";
 }
@@ -41,8 +41,7 @@ $sql = "
         po.unit_price,
         po.ordered_quantity * po.unit_price as total_amount,
         s.supplier_id,
-        s.supplier_name,
-        s.supplier_code
+        s.supplier_name
     FROM Purchase_Order po
     JOIN Supplier s ON po.supplier_id = s.supplier_id
     WHERE $whereClause

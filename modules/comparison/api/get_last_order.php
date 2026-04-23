@@ -19,7 +19,7 @@ $params = ["%$material%", "%$material%"];
 $where = "(po.material_group LIKE ? OR po.description LIKE ?)";
 
 if (!empty($supplier)) {
-    $where .= " AND (s.supplier_name LIKE ? OR s.supplier_code LIKE ?)";
+    $where .= " AND (s.supplier_name)";
     $params[] = "%$supplier%";
     $params[] = "%$supplier%";
 }
@@ -57,7 +57,7 @@ if (!$lastOrder) {
 
 // Get all suppliers for this material
 $supSql = "
-    SELECT DISTINCT s.supplier_id, s.supplier_name, s.supplier_code
+    SELECT DISTINCT s.supplier_id, s.supplier_name
     FROM Purchase_Order po
     JOIN Supplier s ON po.supplier_id = s.supplier_id
     WHERE po.material_group = ? OR po.description LIKE ?
