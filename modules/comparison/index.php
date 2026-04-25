@@ -160,6 +160,18 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             min-width: 70px;
         }
 
+        .sortable-header {
+            cursor: pointer;
+            user-select: none;
+        }
+        .sortable-header:hover {
+            background: #e0e0e0 !important;
+        }
+        .sort-indicator {
+            font-size: 10px;
+            margin-left: 4px;
+        }
+
         .section-header th {
             background: #e0e0e0;
             font-weight: 700;
@@ -402,6 +414,99 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
         .autocomplete-list div:hover {
             background: #f0f7ff;
         }
+        /* Sort & Filter Styles */
+        .sortable-header {
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+        }
+        .sortable-header:hover {
+            background: #e0e0e0 !important;
+        }
+
+        .filter-panel {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: none;
+        }
+        .filter-panel.active {
+            display: block;
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .filter-group-advanced {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .filter-group-advanced label {
+            display: block;
+            font-size: 11px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+
+        .filter-input-advanced {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 13px;
+        }
+
+        .filter-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .btn-filter-action {
+            padding: 8px 16px;
+            border-radius: 5px;
+            border: none;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-apply-filter {
+            background: #4a90e2;
+            color: white;
+        }
+
+        .btn-reset-filter {
+            background: #f5f5f5;
+            color: #666;
+            border: 1px solid #ddd;
+        }
+
+        .btn-toggle-filter {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+
+        .filter-result-count {
+            font-size: 12px;
+            color: #666;
+            margin-left: 10px;
+        }
     </style>
 </head>
 <body>
@@ -442,17 +547,18 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
                 <thead>
                     <tr>
                         <th class="checkbox-col"><input type="checkbox" id="selectAllHistory" onchange="toggleSelectAllHistory()"></th>
-                        <th>COMPARISON ID</th>
-                        <th>PR NUMBER</th>
-                        <th>PO NUMBER</th>
-                        <th>PO DATE</th>
-                        <th>DATE</th>
-                        <th>MATERIAL</th>
-                        <th>QTY</th>
-                        <th>PRICE</th>
-                        <th>AMOUNT</th>
-                        <th>SUPPLIER</th>
-                        <th>DELIVERY DATE</th>
+                        <th class="sortable-header" onclick="sortTableBy('comparison_id')">COMPARISON ID</th>
+                        <th class="sortable-header" onclick="sortTableBy('pr_number')">PR NUMBER</th>
+                        <th class="sortable-header" onclick="sortTableBy('po_number')">PO NUMBER</th>
+                        <th class="sortable-header" onclick="sortTableBy('po_date')">PO DATE</th>
+                        <th class="sortable-header" onclick="sortTableBy('table_created_date')">DATE</th>
+                        <th class="sortable-header" onclick="sortTableBy('material')">MATERIAL</th>
+                        <th class="sortable-header" onclick="sortTableBy('plan_qty')">QTY</th>
+                        <th class="sortable-header" onclick="sortTableBy('price')">PRICE</th>
+                        <th class="sortable-header" onclick="sortTableBy('amount')">AMOUNT</th>
+                        <th class="sortable-header" onclick="sortTableBy('plan_supplier')">SUPPLIER</th>
+                        <th class="sortable-header" onclick="sortTableBy('delivery_date')">DELIVERY DATE</th>
+                        <th class="sortable-header" onclick="sortTableBy('status')">STATUS</th>
                         <th>ACTIONS</th>
                     </tr>
                 </thead>
