@@ -55,7 +55,7 @@ function renderTrackingTable(data) {
     if (!data || data.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="9" style="text-align:center; padding:40px; color:#888;">
+                <td colspan="10" style="text-align:center; padding:40px; color:#888;">
                     No data found
                 </td>
             </tr>`;
@@ -101,7 +101,7 @@ function loadPendingData() {
             const tbody = document.getElementById('pendingTableBody');
 
             if (!data.data || data.data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:40px; color:#888;">No pending PO found</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:40px; color:#888;">No pending PO found</td></tr>`;
                 return;
             }
 
@@ -144,7 +144,7 @@ function loadCompletedData() {
             const tbody = document.getElementById('completedTableBody');
 
             if (!data.data || data.data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:40px; color:#888;">No completed PO found</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:40px; color:#888;">No completed PO found</td></tr>`;
                 return;
             }
 
@@ -188,7 +188,7 @@ function loadSyncHistory() {
             const tbody = document.getElementById('syncHistoryBody');
 
             if (!data.success || !data.data || data.data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:40px; color:#888;">No sync history found</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:40px; color:#888;">No sync history found</td></tr>`;
                 return;
             }
 
@@ -198,6 +198,8 @@ function loadSyncHistory() {
                     <td>${log.user_name || '-'}</td>
                     <td>${log.filename || log.details || '-'}</td>
                     <td>${log.records_processed || '-'}</td>
+                    <td><span class="badge-gr badge-inserted">${log.gr_inserted ?? '-'}</span></td>
+                    <td><span class="badge-gr badge-skipped">${log.gr_skipped ?? '-'}</span></td>
                     <td><span class="status-badge status-completed">Success</span></td>
                 </tr>
             `).join('');
