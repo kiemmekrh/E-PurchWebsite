@@ -1,6 +1,11 @@
 // File: assets/js/tracking.js
 let currentTab = 'overview';
 
+// ─── PAGINATION (Overview Tab) ────────────────────────────────────────────────
+let trackingAllData     = [];
+let trackingPage        = 1;
+const TRACKING_PER_PAGE = 10;
+
 // ─── TAB SWITCHING ────────────────────────────────────────────────────────────
 
 function switchTab(tab, el) {
@@ -31,7 +36,9 @@ function loadTrackingData() {
         .then(data => {
             if (data.success) {
                 updateStats(data.stats);
-                renderTrackingTable(data.data);
+                trackingAllData = data.data;
+                trackingPage    = 1;
+                renderTrackingTable();
             } else {
                 showToast('Failed to load tracking data.', 'error');
             }
@@ -49,29 +56,57 @@ function updateStats(stats) {
     document.getElementById('fullyReceived').textContent = stats.completed || 0;
 }
 
-function renderTrackingTable(data) {
-    const tbody = document.getElementById('trackingTableBody');
+function renderTrackingTable() {
+    const tbody    = document.getElementById('trackingTableBody');
+    const data     = trackingAllData;
+    const total    = data.length;
+    const totalPages = Math.max(1, Math.ceil(total / TRACKING_PER_PAGE));
+    trackingPage   = Math.min(trackingPage, totalPages);
 
-    if (!data || data.length === 0) {
+    const start    = (trackingPage - 1) * TRACKING_PER_PAGE;
+    const pageData = data.slice(start, start + TRACKING_PER_PAGE);
+
+    if (!pageData || pageData.length === 0) {
         tbody.innerHTML = `
             <tr>
                 <td colspan="10" style="text-align:center; padding:40px; color:#888;">
                     No data found
                 </td>
             </tr>`;
+        renderTrackingPagination(total, totalPages);
         return;
     }
 
-    tbody.innerHTML = data.map(row => {
-        const grDetails = row.gr_details
-            ? row.gr_details.split(';;').map(gr => {
+    tbody.innerHTML = pageData.map((row, idx) => {
+        const globalIdx = start + idx;
+        let grHTML = '<span style="color:#aaa;">No GR yet</span>';
+
+        if (row.gr_details) {
+            const grList = row.gr_details.split(';;').map(gr => {
                 const [num, date, qty] = gr.split('|');
                 return `<div class="gr-card" style="font-size:12px; margin-bottom:4px;">
                             <strong>${num}</strong><br>
                             ${formatDate(date)} — Qty: ${formatNumber(qty)}
                         </div>`;
-            }).join('')
-            : '<span style="color:#aaa;">No GR yet</span>';
+            });
+
+            const MAX_VISIBLE = 2;
+            if (grList.length <= MAX_VISIBLE) {
+                grHTML = grList.join('');
+            } else {
+                const hiddenCount = grList.length - MAX_VISIBLE;
+                grHTML = `
+                    ${grList.slice(0, MAX_VISIBLE).join('')}
+                    <div id="gr-more-${globalIdx}" style="display:none;">
+                        ${grList.slice(MAX_VISIBLE).join('')}
+                    </div>
+                    <span onclick="toggleGR(${globalIdx}, event)"
+                          style="font-size:11px; color:#4285f4; cursor:pointer; user-select:none;"
+                          id="gr-toggle-${globalIdx}">
+                        +${hiddenCount} more GR
+                    </span>`;
+            }
+        }
 
         const balanceColor = parseFloat(row.balance_qty) > 0 ? 'color:#dc3545; font-weight:bold;' : 'color:#28a745;';
 
@@ -84,12 +119,58 @@ function renderTrackingTable(data) {
                 <td>${formatNumber(row.ordered_quantity)}</td>
                 <td>${formatNumber(row.received_qty)}</td>
                 <td style="${balanceColor}">${formatNumber(row.balance_qty)}</td>
-                <td>${grDetails}</td>
+                <td>${grHTML}</td>
                 <td><span class="status-badge status-${row.status.toLowerCase()}">${row.status}</span></td>
                 <td>${row.last_gr_date ? formatDate(row.last_gr_date) : '-'}</td>
             </tr>
         `;
     }).join('');
+
+    renderTrackingPagination(total, totalPages);
+}
+
+function toggleGR(idx, e) {
+    e.stopPropagation();
+    const more   = document.getElementById(`gr-more-${idx}`);
+    const toggle = document.getElementById(`gr-toggle-${idx}`);
+    if (!more) return;
+    const isHidden = more.style.display === 'none';
+    more.style.display  = isHidden ? 'block' : 'none';
+    toggle.textContent  = isHidden ? 'Show less' : `+${more.querySelectorAll('.gr-card').length} more GR`;
+}
+
+function renderTrackingPagination(total, totalPages) {
+    const existing = document.getElementById('trackingPagination');
+    if (existing) existing.remove();
+
+    const container = document.querySelector('#tab-overview .data-table-container');
+    if (!container) return;
+
+    const start = (trackingPage - 1) * TRACKING_PER_PAGE + 1;
+    const end   = Math.min(trackingPage * TRACKING_PER_PAGE, total);
+
+    const pag = document.createElement('div');
+    pag.id = 'trackingPagination';
+    pag.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-top:1px solid #eee; font-size:13px; color:#555;';
+    pag.innerHTML = `
+        <span>${total === 0 ? '0 records' : `Showing ${start}–${end} of ${total} records`}</span>
+        <div style="display:flex; gap:6px; align-items:center;">
+            <button onclick="changeTrackingPage(-1)"
+                    style="padding:6px 12px; border:1px solid #ddd; border-radius:6px; background:white; cursor:pointer; ${trackingPage <= 1 ? 'opacity:0.4; pointer-events:none;' : ''}"
+            >← Prev</button>
+            <span style="padding:6px 10px; font-weight:600;">Page ${trackingPage} of ${totalPages}</span>
+            <button onclick="changeTrackingPage(1)"
+                    style="padding:6px 12px; border:1px solid #ddd; border-radius:6px; background:white; cursor:pointer; ${trackingPage >= totalPages ? 'opacity:0.4; pointer-events:none;' : ''}"
+            >Next →</button>
+        </div>
+    `;
+    container.appendChild(pag);
+}
+
+function changeTrackingPage(dir) {
+    const totalPages = Math.ceil(trackingAllData.length / TRACKING_PER_PAGE);
+    trackingPage = Math.min(totalPages, Math.max(1, trackingPage + dir));
+    renderTrackingTable();
 }
 
 // ─── PENDING TAB ─────────────────────────────────────────────────────────────
