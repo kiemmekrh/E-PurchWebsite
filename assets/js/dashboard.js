@@ -39,7 +39,7 @@ function renderPOTable(data) {
     if (!data || data.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="10" style="text-align:center; padding:40px; color:#888;">
+                <td colspan="12" style="text-align:center; padding:40px; color:#888;">
                     No data found
                 </td>
             </tr>`;
