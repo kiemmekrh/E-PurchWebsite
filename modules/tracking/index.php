@@ -1,5 +1,5 @@
 <?php
-// File: modules/tracking/index.php (PO-GR Tracking Module)
+// File: modules/tracking/index.php
 session_start();
 require_once '../../auth/check_session.php';
 checkAuth(['purchasing_staff', 'admin', 'manager']);
@@ -30,11 +30,17 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             border-radius: 8px;
             font-weight: 500;
             color: var(--text-gray);
+            transition: all 0.2s;
         }
         .tracking-tab.active {
             background: var(--primary-yellow);
             color: var(--text-dark);
         }
+        .tracking-tab:hover:not(.active) {
+            background: #f0f0f0;
+        }
+
+        /* Timeline */
         .timeline {
             position: relative;
             padding-left: 30px;
@@ -42,44 +48,45 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
         .timeline::before {
             content: '';
             position: absolute;
-            left: 10px;
-            top: 0;
-            bottom: 0;
+            left: 10px; top: 0; bottom: 0;
             width: 2px;
             background: var(--border-gray);
         }
         .timeline-item {
             position: relative;
             padding-bottom: 25px;
+            line-height: 1.6;
         }
         .timeline-item::before {
             content: '';
             position: absolute;
-            left: -24px;
-            top: 5px;
-            width: 12px;
-            height: 12px;
+            left: -24px; top: 6px;
+            width: 12px; height: 12px;
             border-radius: 50%;
             background: var(--success-green);
             border: 2px solid white;
+            box-shadow: 0 0 0 2px var(--success-green);
         }
         .timeline-item.pending::before {
             background: var(--warning-orange);
+            box-shadow: 0 0 0 2px var(--warning-orange);
         }
-        .gr-card {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 15px;
-            margin-top: 10px;
+
+        /* Sync history table badges */
+        .badge-gr {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 500;
         }
-        .sync-history {
-            margin-top: 30px;
-        }
+        .badge-inserted { background:#d4edda; color:#155724; }
+        .badge-skipped  { background:#fff3cd; color:#856404; }
     </style>
 </head>
 <body>
     <?php include '../../includes/sidebar.php'; ?>
-    
+
     <main class="main-content">
         <div class="page-header">
             <div>
@@ -91,22 +98,24 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
                     ☁️ Upload ZMM039
                 </button>
                 <button class="btn btn-success btn-small" onclick="exportTracking()">
-                    Export Report
+                    ⬇️ Export Report
                 </button>
             </div>
         </div>
 
+        <!-- Tabs -->
         <div class="tracking-tabs">
-            <button class="tracking-tab active" onclick="switchTab('overview')">Overview</button>
-            <button class="tracking-tab" onclick="switchTab('pending')">Pending GR</button>
-            <button class="tracking-tab" onclick="switchTab('completed')">Completed</button>
-            <button class="tracking-tab" onclick="switchTab('history')">Sync History</button>
+            <button class="tracking-tab active" onclick="switchTab('overview', this)">📊 Overview</button>
+            <button class="tracking-tab"        onclick="switchTab('pending',  this)">⏳ Pending GR</button>
+            <button class="tracking-tab"        onclick="switchTab('completed',this)">✅ Completed</button>
+            <button class="tracking-tab"        onclick="switchTab('history',  this)">🕓 Sync History</button>
         </div>
 
-        <!-- Overview Tab -->
-        <div id="tab-overview" class="tab-panel active">
+        <!-- ── OVERVIEW TAB ──────────────────────────────────────────────────── -->
+        <div id="tab-overview" class="tab-panel">
+
             <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
-                <div class="stat-card">
+                <div class="stat-card total">
                     <div class="stat-label">Total PO Items</div>
                     <div class="stat-value" id="totalItems">0</div>
                 </div>
@@ -127,8 +136,9 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             <div class="data-table-container">
                 <div class="table-header">
                     <h3 class="table-title">PO Fulfillment Status</h3>
-                    <div class="filters-bar" style="margin: 0;">
-                        <input type="text" class="filter-input" placeholder="Search PO..." id="searchTracking">
+                    <div class="filters-bar" style="margin:0; flex-wrap:nowrap;">
+                        <input type="text" class="filter-input" placeholder="🔍 Search PO / Description / Vendor"
+                               id="searchTracking" style="min-width:220px;">
                         <select class="filter-select" id="filterTrackingStatus">
                             <option value="all">All Status</option>
                             <option value="Open">Open</option>
@@ -137,35 +147,45 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
                         </select>
                     </div>
                 </div>
+
                 <table class="data-table" id="trackingTable">
                     <thead>
                         <tr>
                             <th>PO NUMBER</th>
                             <th>ITEM</th>
                             <th>DESCRIPTION</th>
-                            <th>ORDERED</th>
-                            <th>RECEIVED</th>
+                            <th>VENDOR</th>
+                            <th>ORDERED QTY</th>
+                            <th>RECEIVED QTY</th>
                             <th>BALANCE</th>
                             <th>GR DETAILS</th>
                             <th>STATUS</th>
-                            <th>LAST UPDATE</th>
+                            <th>LAST GR DATE</th>
                         </tr>
                     </thead>
                     <tbody id="trackingTableBody">
-                        <!-- Loaded via AJAX -->
+                        <tr>
+                            <td colspan="10" style="text-align:center; padding:40px; color:#888;">
+                                Loading data...
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
-        <!-- Pending GR Tab -->
-        <div id="tab-pending" class="tab-panel" style="display: none;">
+        <!-- ── PENDING GR TAB ─────────────────────────────────────────────────── -->
+        <div id="tab-pending" class="tab-panel" style="display:none;">
             <div class="data-table-container">
+                <div class="table-header">
+                    <h3 class="table-title">⏳ Pending — Awaiting Goods Receipt</h3>
+                </div>
                 <table class="data-table" id="pendingTable">
                     <thead>
                         <tr>
                             <th>PO NUMBER</th>
                             <th>DESCRIPTION</th>
+                            <th>VENDOR</th>
                             <th>ORDERED QTY</th>
                             <th>RECEIVED QTY</th>
                             <th>REMAINING</th>
@@ -178,17 +198,21 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             </div>
         </div>
 
-        <!-- Completed Tab -->
-        <div id="tab-completed" class="tab-panel" style="display: none;">
+        <!-- ── COMPLETED TAB ──────────────────────────────────────────────────── -->
+        <div id="tab-completed" class="tab-panel" style="display:none;">
             <div class="data-table-container">
+                <div class="table-header">
+                    <h3 class="table-title">✅ Completed — Fully Received</h3>
+                </div>
                 <table class="data-table" id="completedTable">
                     <thead>
                         <tr>
                             <th>PO NUMBER</th>
                             <th>DESCRIPTION</th>
+                            <th>VENDOR</th>
                             <th>TOTAL QTY</th>
                             <th>GR COUNT</th>
-                            <th>COMPLETED DATE</th>
+                            <th>LAST GR DATE</th>
                             <th>DAYS TO COMPLETE</th>
                         </tr>
                     </thead>
@@ -197,16 +221,21 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             </div>
         </div>
 
-        <!-- Sync History Tab -->
-        <div id="tab-history" class="tab-panel" style="display: none;">
-            <div class="sync-history data-table-container">
+        <!-- ── SYNC HISTORY TAB ───────────────────────────────────────────────── -->
+        <div id="tab-history" class="tab-panel" style="display:none;">
+            <div class="data-table-container">
+                <div class="table-header">
+                    <h3 class="table-title">🕓 ZMM039 Upload History</h3>
+                </div>
                 <table class="data-table" id="syncHistoryTable">
                     <thead>
                         <tr>
                             <th>TIMESTAMP</th>
-                            <th>USER</th>
+                            <th>UPLOADED BY</th>
                             <th>FILENAME</th>
-                            <th>RECORDS PROCESSED</th>
+                            <th>PO PROCESSED</th>
+                            <th>GR INSERTED</th>
+                            <th>GR SKIPPED</th>
                             <th>STATUS</th>
                         </tr>
                     </thead>
@@ -216,7 +245,7 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
         </div>
     </main>
 
-    <!-- PO Detail Modal -->
+    <!-- ── PO DETAIL MODAL ──────────────────────────────────────────────────── -->
     <div id="poDetailModal" class="modal-overlay">
         <div class="modal modal-large">
             <div class="modal-header">
@@ -224,14 +253,12 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
                 <button class="modal-close" onclick="hideDetailModal()">&times;</button>
             </div>
             <div class="modal-body">
-                <div class="timeline" id="poTimeline">
-                    <!-- Dynamic timeline -->
-                </div>
+                <div id="poTimeline"></div>
             </div>
         </div>
     </div>
 
-    <!-- Upload Modal -->
+    <!-- ── UPLOAD MODAL ─────────────────────────────────────────────────────── -->
     <div id="uploadModal" class="modal-overlay">
         <div class="modal">
             <div class="modal-header">
@@ -241,27 +268,41 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
             <div class="modal-body">
                 <div class="upload-area" id="dropZone">
                     <div class="upload-icon">☁️</div>
-                    <div class="upload-text">Drag & drop ZMM039 Excel file</div>
-                    <div class="upload-hint">or click to browse</div>
-                    <input type="file" id="zmm039File" accept=".xlsx,.xls" style="display: none;">
+                    <div class="upload-text">Drag & drop ZMM039 Excel file here</div>
+                    <div class="upload-hint">or click to browse from your computer</div>
+                    <input type="file" id="zmm039File" accept=".xlsx,.xls" style="display:none;">
                 </div>
+
+                <div class="file-list" id="fileList"></div>
+
                 <div class="upload-requirements">
-                    <strong>Required columns:</strong> PO Number, PO Item, PO Date, Ordered Quantity, 
-                    GR Number, GR Date, GR Quantity, Material Group, Description
+                    <strong>Required columns from ZMM039:</strong>
+                    PO No., PO Item, PO Date, PO Quantity, GR No., GR Date, GR Qty.,
+                    Vendor Name, PO Description, Material Group
+                </div>
+
+                <div class="upload-progress" id="uploadProgress" style="display:none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <span id="progressText">0%</span>
                 </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="hideUploadModal()">Cancel</button>
-                <button class="btn btn-primary" onclick="uploadZMM039()" id="uploadBtn">Upload & Process</button>
+                <button class="btn btn-primary" onclick="uploadZMM039()" id="uploadBtn" disabled>
+                    Upload & Process
+                </button>
             </div>
         </div>
     </div>
 
     <script src="../../assets/js/tracking.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             loadTrackingData();
             initUploadHandlers();
+            initFilterHandlers();
         });
     </script>
 </body>
