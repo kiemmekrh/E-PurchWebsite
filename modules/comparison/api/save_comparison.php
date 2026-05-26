@@ -9,6 +9,44 @@ header('Content-Type: application/json');
 
 $data = json_decode(file_get_contents('php://input'), true);
 
+// ============================================
+// AUTO STATUS PROMOTION - DRAFT TO FINAL
+// ============================================
+
+/**
+ * Cek apakah semua required fields sudah terisi
+ * untuk auto-promote dari DRAFT ke FINAL
+ */
+function isAllFieldsFilled($data) {
+    $required = [
+        'pr_number', 'material_code', 'description', 'uom', 'qty_pr',
+        'plan_qty', 'plan_price_idr', 'plan_price_tiba_nu', 'plan_amount', 'plan_supplier',
+        'awarded_po_date', 'awarded_deliv_date', 'awarded_po_number', 'awarded_supplier', 'awarded_amount'
+    ];
+    
+    foreach ($required as $field) {
+        $value = $data[$field] ?? null;
+        if (empty($value) || $value === '' || $value === '0' || $value === '0,00') {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Ambil status dari request, default 'draft'
+$status = $data['status'] ?? 'draft';
+$autoPromoted = false;
+
+// Auto-promote: jika status draft tapi semua field terisi, jadikan final
+if ($status === 'draft' && isAllFieldsFilled($data)) {
+    $status = 'final';
+    $autoPromoted = true;
+}
+
+// ============================================
+// END AUTO STATUS PROMOTION
+// ============================================
+
 function toDate($value) {
     if (empty($value) || $value === '' || $value === '0000-00-00') {
         return null;
@@ -99,17 +137,26 @@ try {
         ':awarded_amount' => toNumber($data['awarded_amount'] ?? 0),
         ':awarded_keterangan' => $data['awarded_keterangan'] ?? '',
         
-        ':status' => $data['status'] ?? 'draft'
+        ':status' => $status  // <-- Sudah di-update dengan auto-promote
     ]);
 
     $comparisonId = $pdo->lastInsertId();
     $pdo->commit();
 
-    echo json_encode([
+    // Response dengan info auto-promote
+    $response = [
         'success' => true,
         'comparison_id' => $comparisonId,
+        'status' => $status,
         'message' => 'Comparison saved successfully'
-    ]);
+    ];
+
+    if ($autoPromoted) {
+        $response['message'] = 'Auto-promoted to FINAL status! All required fields were filled.';
+        $response['auto_promoted'] = true;
+    }
+
+    echo json_encode($response);
 
 } catch (Exception $e) {
     $pdo->rollBack();

@@ -9,6 +9,52 @@ header('Content-Type: application/json');
 
 $data = json_decode(file_get_contents('php://input'), true);
 
+// ============================================
+// AUTO STATUS PROMOTION - DRAFT TO FINAL
+// ============================================
+
+/**
+ * Cek apakah semua required fields sudah terisi
+ * untuk auto-promote dari DRAFT ke FINAL
+ */
+function isAllFieldsFilled($data) {
+    $required = [
+        'pr_number', 'material_code', 'description', 'uom', 'qty_pr',
+        'plan_qty', 'plan_price_idr', 'plan_price_tiba_nu', 'plan_amount', 'plan_supplier',
+        'awarded_po_date', 'awarded_deliv_date', 'awarded_po_number', 'awarded_supplier', 'awarded_amount'
+    ];
+    
+    foreach ($required as $field) {
+        $value = $data[$field] ?? null;
+        if (empty($value) || $value === '' || $value === '0' || $value === '0,00') {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Cek status saat ini dari database
+$currentStatus = 'draft';
+if (isset($data['comparison_id'])) {
+    $checkStmt = $pdo->prepare("SELECT status FROM Comparison_Table WHERE comparison_id = ?");
+    $checkStmt->execute([$data['comparison_id']]);
+    $currentStatus = $checkStmt->fetchColumn() ?: 'draft';
+}
+
+// Ambil status dari request, atau gunakan status saat ini
+$status = $data['status'] ?? $currentStatus;
+$autoPromoted = false;
+
+// Auto-promote: jika status saat ini DRAFT dan semua field terisi, promote ke FINAL
+if ($currentStatus === 'draft' && isAllFieldsFilled($data)) {
+    $status = 'final';
+    $autoPromoted = true;
+}
+
+// ============================================
+// END AUTO STATUS PROMOTION
+// ============================================
+
 function toDate($value) {
     return (empty($value) || $value === '0000-00-00') ? null : $value;
 }
@@ -62,6 +108,7 @@ try {
             awarded_amount = :awarded_amount,
             awarded_keterangan = :awarded_keterangan,
             
+            status = :status,
             updated_at = NOW()
         WHERE comparison_id = :comparison_id
     ");
@@ -106,11 +153,26 @@ try {
         ':awarded_supplier_id' => null,
         ':awarded_supplier_name' => $data['awarded_supplier'] ?? '',
         ':awarded_amount' => toNumber($data['awarded_amount'] ?? 0),
-        ':awarded_keterangan' => $data['awarded_keterangan'] ?? ''
+        ':awarded_keterangan' => $data['awarded_keterangan'] ?? '',
+        
+        ':status' => $status  // <-- Sudah di-update dengan auto-promote
     ]);
 
     $pdo->commit();
-    echo json_encode(['success' => true, 'message' => 'Updated successfully']);
+
+    // Response dengan info auto-promote
+    $response = [
+        'success' => true,
+        'status' => $status,
+        'message' => 'Updated successfully'
+    ];
+
+    if ($autoPromoted) {
+        $response['message'] = 'Auto-promoted from DRAFT to FINAL! All required fields are now complete.';
+        $response['auto_promoted'] = true;
+    }
+
+    echo json_encode($response);
 
 } catch (Exception $e) {
     $pdo->rollBack();
