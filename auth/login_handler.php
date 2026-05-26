@@ -1,5 +1,8 @@
 <?php
-require_once 'config/database.php';
+session_start();
+
+// Fix path: naik 1 level dari auth/ ke root project
+require_once __DIR__ . '/../config/database.php';
 
 function authenticateUser($email, $password, $pdo) {
     $stmt = $pdo->prepare("SELECT * FROM User WHERE email = ? AND status = 'active'");
@@ -12,10 +15,15 @@ function authenticateUser($email, $password, $pdo) {
     return false;
 }
 
-function authenticateSupplier($supplierId, $password, $pdo) {
-    $stmt = $pdo->prepare("SELECT * FROM Supplier WHERE supplier_id = ? AND password = ? AND status = 'active'");
-    $stmt->execute([$supplierId, $password]);
-    return $stmt->fetch();
+function authenticateSupplier($email, $password, $pdo) {
+    $stmt = $pdo->prepare("SELECT * FROM Supplier WHERE email = ? AND status = 'active'");
+    $stmt->execute([$email]);
+    $supplier = $stmt->fetch();
+    
+    if ($supplier && ($supplier['password'] === $password || password_verify($password, $supplier['password']))) {
+        return $supplier;
+    }
+    return false;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -33,26 +41,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['email'] = $user['email'];
             $_SESSION['role'] = $user['role'];
             
-            header('Location: modules/dashboard/index.php');
+            header('Location: ../modules/dashboard/index.php');  // <-- Fix path juga
             exit;
         } else {
-            $error = 'Invalid email or password';
+            $_SESSION['login_error'] = 'Invalid email or password';
+            $_SESSION['last_login_type'] = 'staff';
+            header('Location: ../index.php');  // <-- Fix path
+            exit;
         }
     } else {
-        $supplierId = $_POST['supplier_id'] ?? '';
+        $email = $_POST['email'] ?? '';
         $password = $_POST['password'] ?? '';
         
-        $supplier = authenticateSupplier($supplierId, $password, $pdo);
+        $supplier = authenticateSupplier($email, $password, $pdo);
         
         if ($supplier) {
             $_SESSION['user_id'] = $supplier['supplier_id'];
             $_SESSION['name'] = $supplier['supplier_name'];
+            $_SESSION['email'] = $supplier['email'];
             $_SESSION['role'] = 'supplier';
             
-            header('Location: modules/invoice/submit.php');
+            header('Location: ../modules/invoice/submit.php');  // <-- Fix path
             exit;
         } else {
-            $error = 'Invalid supplier credentials';
+            $_SESSION['login_error'] = 'Invalid email or password';
+            $_SESSION['last_login_type'] = 'supplier';
+            header('Location: ../index.php');  // <-- Fix path
+            exit;
         }
     }
 }
