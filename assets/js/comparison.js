@@ -1550,3 +1550,148 @@ function toggleFilterPanel() {
         panel.classList.toggle('hidden');
     }
 }
+
+// ============================================
+// AUTO STATUS PROMOTION - DRAFT TO FINAL
+// ============================================
+
+/**
+ * Cek apakah semua required fields sudah terisi
+ */
+function checkAllFieldsFilled(prefix) {
+    const validation = validateRequiredFields(prefix);
+    return validation.valid;
+}
+
+/**
+ * Progress bar kelengkapan field
+ */
+function addProgressBar(prefix) {
+    const containerId = prefix === 'new' ? 'newComparisonView' : 'spreadsheetCreateView';
+    const container = document.getElementById(containerId);
+    
+    let progressContainer = document.getElementById(`progressContainer-${prefix}`);
+    if (!progressContainer) {
+        progressContainer = document.createElement('div');
+        progressContainer.id = `progressContainer-${prefix}`;
+        progressContainer.style.cssText = 'background:#f8f9fa;border:1px solid #e0e0e0;border-radius:6px;padding:10px 15px;margin-bottom:15px;';
+        
+        progressContainer.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <span style="font-size:12px;font-weight:600;color:#555;">Completion Status</span>
+                <span id="progressText-${prefix}" style="font-size:12px;font-weight:600;color:#4a90e2;">0%</span>
+            </div>
+            <div style="width:100%;height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden;">
+                <div id="progressBar-${prefix}" style="width:0%;height:100%;background:#4a90e2;transition:width 0.3s;border-radius:3px;"></div>
+            </div>
+            <div id="progressDetail-${prefix}" style="font-size:11px;color:#888;margin-top:4px;"></div>
+        `;
+        
+        const pageHeader = container.querySelector('.page-header');
+        if (pageHeader && pageHeader.nextSibling) {
+            container.insertBefore(progressContainer, pageHeader.nextSibling);
+        }
+    }
+    updateProgressBar(prefix);
+}
+
+function updateProgressBar(prefix) {
+    const allFields = [...REQUIRED_FIELDS.header, ...REQUIRED_FIELDS.plan, ...REQUIRED_FIELDS.awarded];
+    let filledCount = 0;
+    let emptyFields = [];
+    const containerId = prefix === 'new' ? 'newComparisonView' : 'spreadsheetCreateView';
+    
+    allFields.forEach(field => {
+        const input = document.querySelector(`#${containerId} [data-field="${field}"]`);
+        if (input) {
+            const val = input.value.trim();
+            if (val && val !== '' && val !== '0') filledCount++;
+            else emptyFields.push(FIELD_LABELS[field] || field);
+        }
+    });
+    
+    const percentage = Math.round((filledCount / allFields.length) * 100);
+    const progressBar = document.getElementById(`progressBar-${prefix}`);
+    const progressText = document.getElementById(`progressText-${prefix}`);
+    const progressDetail = document.getElementById(`progressDetail-${prefix}`);
+    
+    if (progressBar) {
+        progressBar.style.width = percentage + '%';
+        if (percentage === 100) {
+            progressBar.style.background = '#28a745';
+            progressText.style.color = '#28a745';
+            progressText.textContent = '100% - READY FOR FINAL!';
+        } else {
+            progressBar.style.background = '#ffc107';
+            progressText.style.color = '#856404';
+            progressText.textContent = percentage + '%';
+        }
+    }
+    
+    if (progressDetail) {
+        progressDetail.textContent = emptyFields.length > 0 ? 'Missing: ' + emptyFields.join(', ') : 'All fields filled! Will auto-promote to FINAL.';
+    }
+}
+
+// Override fungsi existing untuk tracking
+const originalShowCreateNewComparison = showCreateNewComparison;
+showCreateNewComparison = function() {
+    originalShowCreateNewComparison();
+    setTimeout(() => addProgressBar('new'), 200);
+};
+
+const originalShowSpreadsheetCreateView = showSpreadsheetCreateView;
+showSpreadsheetCreateView = function() {
+    originalShowSpreadsheetCreateView();
+    setTimeout(() => addProgressBar('create'), 200);
+};
+
+// Real-time monitoring
+function initAutoStatusCheck(prefix) {
+    const containerId = prefix === 'new' ? 'newComparisonView' : 'spreadsheetCreateView';
+    const inputs = document.querySelectorAll(`#${containerId} input[data-field]`);
+    inputs.forEach(input => {
+        input.addEventListener('blur', () => setTimeout(() => updateProgressBar(prefix), 100));
+        input.addEventListener('change', () => setTimeout(() => updateProgressBar(prefix), 100));
+    });
+}
+
+// Override save functions untuk auto-promote
+const originalSaveComparisonData = saveComparisonData;
+saveComparisonData = function(status, prefix) {
+    const allFilled = checkAllFieldsFilled(prefix);
+    
+    // Auto-promote: jika draft tapi semua field terisi, jadikan final
+    if (status === 'draft' && allFilled) {
+        if (confirm('All required fields are filled! Promote to FINAL status?')) {
+            status = 'final';
+            showToast('Auto-promoting to FINAL...', 'success');
+        }
+    }
+    
+    // Panggil fungsi original dengan status yang mungkin sudah berubah
+    const payload = collectFormData(prefix);
+    payload.status = status;
+    payload.created_from = prefix;
+
+    fetch('api/save_comparison.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            const msg = status === 'final' ? 'Comparison saved as FINAL!' : 'Draft saved!';
+            showToast(msg + ' ID: ' + data.comparison_id);
+            backToHistory();
+            loadComparisonHistory();
+        } else {
+            showToast('Error: ' + (data.error || 'Unknown error'), 'error');
+        }
+    })
+    .catch(err => {
+        console.error('Error saving:', err);
+        showToast('Server error saat save', 'error');
+    });
+};
