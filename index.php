@@ -11,7 +11,14 @@ if (isset($_SESSION['user_id'])) {
     exit;
 }
 
-$error = '';
+// Ambil error dan tipe login terakhir dari session
+$error = $_SESSION['login_error'] ?? '';
+$lastLoginType = $_SESSION['last_login_type'] ?? 'staff';
+
+// Clear session error setelah diambil
+unset($_SESSION['login_error']);
+unset($_SESSION['last_login_type']);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_once 'auth/login_handler.php';
 }
@@ -48,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php endif; ?>
                 
                 <!-- Purchasing Staff Login Form -->
-                <form id="staffLoginForm" method="POST" action="">
+                <form id="staffLoginForm" method="POST" action="auth/login_handler.php">
                     <input type="hidden" name="login_type" value="staff">
                     <div class="form-group">
                         <label class="form-label">Email</label>
@@ -79,20 +86,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             <!-- Supplier Login Form (Hidden by default) -->
             <div class="login-form" id="supplierForm" style="display: none;">
-                <form method="POST" action="">
+                <form method="POST" action="auth/login_handler.php">
                     <input type="hidden" name="login_type" value="supplier">
                     <div class="form-group">
-                        <label class="form-label">Select Company</label>
-                        <select name="supplier_id" class="form-input" required>
-                            <option value="">Select your company</option>
-                            <?php
-                            require_once 'config/database.php';
-                            $stmt = $pdo->query("SELECT supplier_id, supplier_name FROM Supplier WHERE status = 'active'");
-                            while ($row = $stmt->fetch()) {
-                                echo '<option value="' . $row['supplier_id'] . '">' . htmlspecialchars($row['supplier_name']) . '</option>';
-                            }
-                            ?>
-                        </select>
+                        <label class="form-label">Email</label>
+                        <input type="email" name="email" class="form-input" placeholder="Enter your company email" required>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Password</label>
@@ -133,6 +131,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             document.querySelectorAll('.btn-outline')[0].style.display = 'block';
             document.getElementById('formTitle').textContent = 'Login';
         }
+        
+        // <-- TAMBAH INI: Auto-show supplier form kalau error dari supplier login
+        <?php if ($lastLoginType === 'supplier'): ?>
+        document.addEventListener('DOMContentLoaded', function() {
+            showSupplierLogin();
+        });
+        <?php endif; ?>
     </script>
 </body>
 </html>
