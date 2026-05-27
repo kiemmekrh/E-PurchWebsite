@@ -32,14 +32,6 @@ if (isSupplier()) {
                 <p class="welcome-text">Welcome, <?php echo htmlspecialchars($_SESSION['name']); ?>!</p>
             </div>
             <div class="header-actions">
-                <?php if (isPurchasingStaff() || isManager()): ?>
-                <button class="btn btn-warning btn-small" onclick="showUploadModal()">
-                    ☁️ Upload ZMM039
-                </button>
-                <?php endif; ?>
-                <button class="btn btn-success btn-small" onclick="exportTable('poTable')">
-                    ⬇️ Export
-                </button>
             </div>
         </div>
 
@@ -127,50 +119,10 @@ if (isSupplier()) {
         </div>
     </main>
 
-    <!-- Upload Modal -->
-    <div id="uploadModal" class="modal-overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 class="modal-title">Upload ZMM039 Excel File</h3>
-                <button class="modal-close" onclick="hideUploadModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="upload-area" id="dropZone">
-                    <div class="upload-icon">☁️</div>
-                    <div class="upload-text">Drag & drop file here</div>
-                    <div class="upload-hint">or click to browse from your computer</div>
-                    <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none;">
-                </div>
-
-                <div class="file-list" id="fileList"></div>
-
-                <div class="upload-requirements">
-                    <strong>Required columns from ZMM039:</strong>
-                    PO No., PO Item, PO Date, PO Quantity, GR No., GR Date, GR Qty.,
-                    Vendor Name, PO Description, Material Group
-                </div>
-
-                <div class="upload-progress" id="uploadProgress" style="display:none;">
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="progressFill"></div>
-                    </div>
-                    <span id="progressText">0%</span>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="hideUploadModal()">Cancel</button>
-                <button class="btn btn-primary" onclick="processUpload()" id="uploadBtn" disabled>
-                    Upload & Process
-                </button>
-            </div>
-        </div>
-    </div>
-
     <script src="../../assets/js/dashboard.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             loadDashboardData();
-            initUploadHandlers();
 
             // Live search on Enter or after 600ms idle
             let debounce;
