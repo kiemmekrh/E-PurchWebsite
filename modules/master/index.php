@@ -186,6 +186,69 @@ checkAuth(['admin']);
             margin-left: 8px;
             vertical-align: middle;
         }
+                /* Pagination */
+                .pagination-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: #f8f9fa;
+            border-top: 1px solid #e0e0e0;
+            border-radius: 0 0 8px 8px;
+            margin-top: -1px;
+        }
+        .pagination-info {
+            color: #666;
+            font-size: 13px;
+        }
+        .pagination-info strong {
+            color: #333;
+        }
+        .pagination-pages {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .pagination-btn {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            color: #555;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            min-width: 36px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+        }
+        .pagination-btn:hover:not(:disabled) {
+            background: #e9ecef;
+            border-color: #adb5bd;
+        }
+        .pagination-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .pagination-btn.active {
+            background: #4a90e2;
+            border-color: #4a90e2;
+            color: white;
+            font-weight: 600;
+        }
+        .pagination-ellipsis {
+            padding: 0 6px;
+            color: #888;
+            font-size: 13px;
+        }
+        .pagination-select {
+            padding: 4px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            outline: none;
+        }
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
@@ -388,430 +451,6 @@ checkAuth(['admin']);
 
     <!-- Toast Notification -->
     <div id="toast" class="toast"></div>
-
-    <script>
-        // ==================== GLOBAL ====================
-        let currentTab = 'users';
-        let allUsers = [];
-        let allSuppliers = [];
-
-        document.addEventListener('DOMContentLoaded', () => {
-            loadUsers();
-        });
-
-        function showToast(message, type = 'success') {
-            const toast = document.getElementById('toast');
-            toast.textContent = message;
-            toast.className = `toast toast-${type}`;
-            toast.classList.add('show');
-            setTimeout(() => toast.classList.remove('show'), 3000);
-        }
-
-        function switchTab(tab) {
-            currentTab = tab;
-            
-            // Update tab buttons
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
-            
-            // Update tab content
-            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-            document.getElementById(`tab-${tab}`).classList.add('active');
-            
-            // Load data
-            if (tab === 'users') loadUsers();
-            else if (tab === 'suppliers') loadSuppliers();
-            else if (tab === 'logs') loadLogs();
-        }
-
-        // ==================== USERS CRUD ====================
-        function loadUsers() {
-            fetch('api/get_users.php')
-                .then(r => r.json())
-                .then(data => {
-                    allUsers = data.data || [];
-                    renderUsers(allUsers);
-                })
-                .catch(err => {
-                    console.error('Failed to load users:', err);
-                    document.getElementById('usersTableBody').innerHTML = 
-                        '<tr><td colspan="7" class="empty-state">Failed to load users</td></tr>';
-                });
-        }
-
-        function renderUsers(users) {
-            const tbody = document.getElementById('usersTableBody');
-            if (users.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No users found</td></tr>';
-                return;
-            }
-            
-            tbody.innerHTML = users.map(u => `
-                <tr>
-                    <td>${u.user_id}</td>
-                    <td>${escapeHtml(u.name)}</td>
-                    <td>${escapeHtml(u.email)}</td>
-                    <td><span class="status-badge status-${u.status}">${formatRole(u.role)}</span></td>
-                    <td><span class="status-badge ${u.status === 'active' ? 'status-active' : 'status-inactive'}">${u.status}</span></td>
-                    <td>${formatDate(u.created_at)}</td>
-                    <td>
-                        <button class="action-btn btn-edit" onclick="editUser(${u.user_id})">Edit</button>
-                        <button class="action-btn btn-delete" onclick="deleteUser(${u.user_id}, '${escapeHtml(u.name)}')">Delete</button>
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        function filterUsers() {
-            const query = document.getElementById('searchUser').value.toLowerCase();
-            const filtered = allUsers.filter(u => 
-                u.name.toLowerCase().includes(query) || 
-                u.email.toLowerCase().includes(query) ||
-                u.role.toLowerCase().includes(query)
-            );
-            renderUsers(filtered);
-        }
-
-        function showUserForm() {
-            document.getElementById('userForm').reset();
-            document.getElementById('userId').value = '';
-            document.getElementById('userModalTitle').textContent = 'Add User';
-            document.getElementById('passwordLabel').textContent = '*';
-            document.getElementById('userPassword').required = true;
-            document.getElementById('passwordHint').style.display = 'none';
-            document.getElementById('userModal').classList.add('active');
-        }
-
-        function hideUserModal() {
-            document.getElementById('userModal').classList.remove('active');
-        }
-
-        function editUser(userId) {
-            const user = allUsers.find(u => u.user_id == userId);
-            if (!user) return;
-            
-            document.getElementById('userId').value = user.user_id;
-            document.getElementById('userName').value = user.name;
-            document.getElementById('userEmail').value = user.email;
-            document.getElementById('userRole').value = user.role;
-            document.getElementById('userStatus').value = user.status;
-            document.getElementById('userPassword').value = '';
-            
-            document.getElementById('userModalTitle').textContent = 'Edit User';
-            document.getElementById('passwordLabel').textContent = '';
-            document.getElementById('userPassword').required = false;
-            document.getElementById('passwordHint').style.display = 'block';
-            document.getElementById('userModal').classList.add('active');
-        }
-
-        function saveUser() {
-            const userId = document.getElementById('userId').value;
-            const isEdit = userId !== '';
-            
-            const data = {
-                user_id: userId || null,
-                name: document.getElementById('userName').value.trim(),
-                email: document.getElementById('userEmail').value.trim(),
-                role: document.getElementById('userRole').value,
-                status: document.getElementById('userStatus').value,
-                password: document.getElementById('userPassword').value
-            };
-            
-            if (!data.name || !data.email) {
-                showToast('Name and email are required!', 'error');
-                return;
-            }
-            
-            if (!isEdit && !data.password) {
-                showToast('Password is required for new users!', 'error');
-                return;
-            }
-            
-            const btn = document.getElementById('saveUserBtn');
-            btn.classList.add('btn-loading');
-            btn.disabled = true;
-            
-            fetch('api/save_user.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            })
-            .then(r => r.json())
-            .then(res => {
-                btn.classList.remove('btn-loading');
-                btn.disabled = false;
-                
-                if (res.success) {
-                    showToast(isEdit ? 'User updated successfully!' : 'User created successfully!');
-                    hideUserModal();
-                    loadUsers();
-                } else {
-                    showToast(res.error || 'Failed to save user', 'error');
-                }
-            })
-            .catch(err => {
-                btn.classList.remove('btn-loading');
-                btn.disabled = false;
-                showToast('Network error: ' + err.message, 'error');
-            });
-        }
-
-        function deleteUser(userId, userName) {
-            if (!confirm(`Are you sure you want to delete user "${userName}"?\n\nThis action cannot be undone!`)) {
-                return;
-            }
-            
-            fetch('api/delete_user.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: userId })
-            })
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) {
-                    showToast('User deleted successfully!');
-                    loadUsers();
-                } else {
-                    showToast(res.error || 'Failed to delete user', 'error');
-                }
-            })
-            .catch(err => {
-                showToast('Network error: ' + err.message, 'error');
-            });
-        }
-
-        // ==================== SUPPLIERS CRUD ====================
-        function loadSuppliers() {
-            fetch('api/get_suppliers.php')
-                .then(r => r.json())
-                .then(data => {
-                    allSuppliers = data.data || [];
-                    renderSuppliers(allSuppliers);
-                })
-                .catch(err => {
-                    console.error('Failed to load suppliers:', err);
-                    document.getElementById('suppliersTableBody').innerHTML = 
-                        '<tr><td colspan="7" class="empty-state">Failed to load suppliers</td></tr>';
-                });
-        }
-
-        function renderSuppliers(suppliers) {
-            const tbody = document.getElementById('suppliersTableBody');
-            if (suppliers.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No suppliers found</td></tr>';
-                return;
-            }
-            
-            tbody.innerHTML = suppliers.map(s => `
-                <tr>
-                    <td>${s.supplier_id}</td>
-                    <td>${escapeHtml(s.supplier_name)}</td>
-                    <td>${escapeHtml(s.email)}</td>
-                    <td>${escapeHtml(s.contact_info || '-')}</td>
-                    <td><span class="status-badge ${s.status === 'active' ? 'status-active' : 'status-inactive'}">${s.status}</span></td>
-                    <td>${formatDate(s.created_at)}</td>
-                    <td>
-                        <button class="action-btn btn-edit" onclick="editSupplier(${s.supplier_id})">Edit</button>
-                        <button class="action-btn btn-delete" onclick="deleteSupplier(${s.supplier_id}, '${escapeHtml(s.supplier_name)}')">Delete</button>
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        function filterSuppliers() {
-            const query = document.getElementById('searchSupplier').value.toLowerCase();
-            const filtered = allSuppliers.filter(s => 
-                s.supplier_name.toLowerCase().includes(query) || 
-                s.email.toLowerCase().includes(query)
-            );
-            renderSuppliers(filtered);
-        }
-
-        function showSupplierForm() {
-            document.getElementById('supplierForm').reset();
-            document.getElementById('supplierId').value = '';
-            document.getElementById('supplierModalTitle').textContent = 'Add Supplier';
-            document.getElementById('supplierPasswordLabel').textContent = '*';
-            document.getElementById('supplierPassword').required = true;
-            document.getElementById('supplierPasswordHint').style.display = 'none';
-            document.getElementById('supplierModal').classList.add('active');
-        }
-
-        function hideSupplierModal() {
-            document.getElementById('supplierModal').classList.remove('active');
-        }
-
-        function editSupplier(supplierId) {
-            const supplier = allSuppliers.find(s => s.supplier_id == supplierId);
-            if (!supplier) return;
-            
-            document.getElementById('supplierId').value = supplier.supplier_id;
-            document.getElementById('supplierName').value = supplier.supplier_name;
-            document.getElementById('supplierEmail').value = supplier.email;
-            document.getElementById('supplierContact').value = supplier.contact_info || '';
-            document.getElementById('supplierStatus').value = supplier.status;
-            document.getElementById('supplierPassword').value = '';
-            
-            document.getElementById('supplierModalTitle').textContent = 'Edit Supplier';
-            document.getElementById('supplierPasswordLabel').textContent = '';
-            document.getElementById('supplierPassword').required = false;
-            document.getElementById('supplierPasswordHint').style.display = 'block';
-            document.getElementById('supplierModal').classList.add('active');
-        }
-
-        function saveSupplier() {
-            const supplierId = document.getElementById('supplierId').value;
-            const isEdit = supplierId !== '';
-            
-            const data = {
-                supplier_id: supplierId || null,
-                supplier_name: document.getElementById('supplierName').value.trim(),
-                email: document.getElementById('supplierEmail').value.trim(),
-                contact_info: document.getElementById('supplierContact').value.trim(),
-                status: document.getElementById('supplierStatus').value,
-                password: document.getElementById('supplierPassword').value
-            };
-            
-            if (!data.supplier_name || !data.email) {
-                showToast('Supplier name and email are required!', 'error');
-                return;
-            }
-            
-            if (!isEdit && !data.password) {
-                showToast('Password is required for new suppliers!', 'error');
-                return;
-            }
-            
-            const btn = document.getElementById('saveSupplierBtn');
-            btn.classList.add('btn-loading');
-            btn.disabled = true;
-            
-            fetch('api/save_supplier.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            })
-            .then(r => r.json())
-            .then(res => {
-                btn.classList.remove('btn-loading');
-                btn.disabled = false;
-                
-                if (res.success) {
-                    showToast(isEdit ? 'Supplier updated successfully!' : 'Supplier created successfully!');
-                    hideSupplierModal();
-                    loadSuppliers();
-                } else {
-                    showToast(res.error || 'Failed to save supplier', 'error');
-                }
-            })
-            .catch(err => {
-                btn.classList.remove('btn-loading');
-                btn.disabled = false;
-                showToast('Network error: ' + err.message, 'error');
-            });
-        }
-
-        function deleteSupplier(supplierId, supplierName) {
-            if (!confirm(`Are you sure you want to delete supplier "${supplierName}"?\n\nThis action cannot be undone!`)) {
-                return;
-            }
-            
-            fetch('api/delete_supplier.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ supplier_id: supplierId })
-            })
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) {
-                    showToast('Supplier deleted successfully!');
-                    loadSuppliers();
-                } else {
-                    showToast(res.error || 'Failed to delete supplier', 'error');
-                }
-            })
-            .catch(err => {
-                showToast('Network error: ' + err.message, 'error');
-            });
-        }
-
-        // ==================== LOGS ====================
-        function loadLogs() {
-            const action = document.getElementById('filterLogAction').value;
-            const date = document.getElementById('filterLogDate').value;
-            
-            const params = new URLSearchParams();
-            if (action !== 'all') params.append('action', action);
-            if (date) params.append('date', date);
-            
-            fetch('api/get_logs.php?' + params.toString())
-                .then(r => r.json())
-                .then(data => {
-                    const tbody = document.getElementById('logsTableBody');
-                    const logs = data.data || [];
-                    
-                    if (logs.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No logs found</td></tr>';
-                        return;
-                    }
-                    
-                    tbody.innerHTML = logs.map(log => `
-                        <tr>
-                            <td>${formatDateTime(log.created_at)}</td>
-                            <td>${escapeHtml(log.user_name || 'System')}</td>
-                            <td><span class="status-badge">${log.action}</span></td>
-                            <td>${escapeHtml(log.details || '-')}</td>
-                            <td>${log.ip_address || '-'}</td>
-                        </tr>
-                    `).join('');
-                })
-                .catch(err => {
-                    console.error('Failed to load logs:', err);
-                    document.getElementById('logsTableBody').innerHTML = 
-                        '<tr><td colspan="5" class="empty-state">Failed to load logs</td></tr>';
-                });
-        }
-
-        // ==================== UTILITIES ====================
-        function escapeHtml(text) {
-            if (!text) return '';
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        function formatRole(role) {
-            return role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-        }
-
-        function formatDate(dateStr) {
-            if (!dateStr) return '-';
-            const d = new Date(dateStr);
-            return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
-        }
-
-        function formatDateTime(dateStr) {
-            if (!dateStr) return '-';
-            const d = new Date(dateStr);
-            return d.toLocaleString('id-ID', { 
-                day: '2-digit', month: 'short', year: 'numeric',
-                hour: '2-digit', minute: '2-digit'
-            });
-        }
-
-        // Close modal on overlay click
-        document.querySelectorAll('.modal-overlay').forEach(overlay => {
-            overlay.addEventListener('click', (e) => {
-                if (e.target === overlay) overlay.classList.remove('active');
-            });
-        });
-
-        // Close modal on Escape key
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                document.querySelectorAll('.modal-overlay').forEach(o => o.classList.remove('active'));
-            }
-        });
-    </script>
+    <script src="../../assets/js/master.js"></script>
 </body>
 </html>

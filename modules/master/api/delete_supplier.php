@@ -10,9 +10,18 @@ $data = json_decode(file_get_contents('php://input'), true);
 
 try {
     $supplierId = $data['supplier_id'] ?? null;
-    $stmt = $pdo->prepare("DELETE FROM Supplier WHERE supplier_id = ?");
+    
+    if (!$supplierId) {
+        echo json_encode(['success' => false, 'error' => 'Supplier ID required']);
+        exit;
+    }
+    
+    // SOFT DELETE: set is_deleted = 1, jangan DELETE
+    $stmt = $pdo->prepare("UPDATE Supplier SET is_deleted = 1, status = 'inactive' WHERE supplier_id = ?");
     $stmt->execute([$supplierId]);
-    echo json_encode(['success' => true]);
+    
+    echo json_encode(['success' => true, 'message' => 'Supplier deactivated (soft delete)']);
+    
 } catch (PDOException $e) {
     echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }

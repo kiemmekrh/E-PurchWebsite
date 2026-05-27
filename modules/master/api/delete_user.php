@@ -17,10 +17,17 @@ try {
         exit;
     }
     
-    $stmt = $pdo->prepare("DELETE FROM User WHERE user_id = ?");
+    if (!$userId) {
+        echo json_encode(['success' => false, 'error' => 'User ID required']);
+        exit;
+    }
+    
+    // SOFT DELETE: set is_deleted = 1, jangan DELETE
+    $stmt = $pdo->prepare("UPDATE User SET is_deleted = 1, status = 'inactive' WHERE user_id = ?");
     $stmt->execute([$userId]);
     
-    echo json_encode(['success' => true]);
+    echo json_encode(['success' => true, 'message' => 'User deactivated']);
+    
 } catch (PDOException $e) {
     echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }
