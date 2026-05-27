@@ -3,8 +3,13 @@
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
 $module = basename(dirname($_SERVER['PHP_SELF']));
 $logoPath = '../../assets/images/inaco_logo-removebg-preview.png';
+
+// Pastikan session sudah dimulai
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 ?>
-<aside class="sidebar">
+<<aside class="sidebar">
     <div class="sidebar-header">
         <div class="sidebar-logo">
             <img src="<?php echo $logoPath; ?>" alt="logo" class="logo"/>
@@ -17,30 +22,47 @@ $logoPath = '../../assets/images/inaco_logo-removebg-preview.png';
     
     <nav>
         <ul class="nav-menu">
+            <!-- Dashboard: Admin & Purchasing Staff -->
+            <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'purchasing_staff' || $_SESSION['role'] === 'manager'): ?>
             <li class="nav-item">
                 <a href="../dashboard/index.php" class="nav-link <?php echo $module === 'dashboard' ? 'active' : ''; ?>">
                     <span>🏠</span>
                     <span>Dashboard</span>
                 </a>
             </li>
+            <?php endif; ?>
+
+            <!-- Comparison Table: Purchasing Staff Only -->
+            <?php if ($_SESSION['role'] === 'purchasing_staff' || $_SESSION['role'] === 'manager'): ?>
             <li class="nav-item">
                 <a href="../comparison/index.php" class="nav-link <?php echo $module === 'comparison' ? 'active' : ''; ?>">
                     <span>📊</span>
                     <span>Comparison Table</span>
                 </a>
             </li>
+            <?php endif; ?>
+
+            <!-- Invoice Tracker: Purchasing Staff Only -->
+            <?php if ($_SESSION['role'] === 'purchasing_staff' || $_SESSION['role'] === 'manager'): ?>
             <li class="nav-item">
                 <a href="../invoice/index.php" class="nav-link <?php echo $module === 'invoice' ? 'active' : ''; ?>">
                     <span>📄</span>
                     <span>Invoice Tracker</span>
                 </a>
             </li>
+            <?php endif; ?>
+
+            <!-- PO & GR Tracking: Purchasing Staff Only -->
+            <?php if ($_SESSION['role'] === 'purchasing_staff' || $_SESSION['role'] === 'manager'): ?>
             <li class="nav-item">
                 <a href="../tracking/index.php" class="nav-link <?php echo $module === 'tracking' ? 'active' : ''; ?>">
                     <span>📦</span>
                     <span>PO & GR Tracking</span>
                 </a>
             </li>
+            <?php endif; ?>
+
+            <!-- Master Data: Admin Only -->
             <?php if ($_SESSION['role'] === 'admin'): ?>
             <li class="nav-item">
                 <a href="../master/index.php" class="nav-link <?php echo $module === 'master' ? 'active' : ''; ?>">
