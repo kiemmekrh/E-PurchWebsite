@@ -18,6 +18,7 @@ checkAuth(['supplier']);
             padding: 20px;
             margin: -30px -30px 30px -30px;
             border-bottom: 3px solid var(--primary-red);
+            position: relative;
         }
         .supplier-info {
             display: flex;
@@ -34,9 +35,109 @@ checkAuth(['supplier']);
             justify-content: center;
             font-size: 24px;
         }
+
+        /* ===== ALERT STYLES ===== */
+        .alert-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.4);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            animation: fadeIn 0.2s ease;
+        }
+        .alert-overlay.active {
+            display: flex;
+        }
+        .alert-box {
+            background: white;
+            border-radius: 12px;
+            padding: 30px 40px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            animation: slideUp 0.3s ease;
+        }
+        .alert-icon {
+            font-size: 60px;
+            margin-bottom: 15px;
+        }
+        .alert-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #2e7d32;
+            margin-bottom: 10px;
+        }
+        .alert-message {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+        .alert-btn {
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 12px 32px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .alert-btn:hover {
+            background: #43a047;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Loading spinner */
+        .btn-loading {
+            position: relative;
+            color: transparent !important;
+        }
+        .btn-loading::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            top: 50%;
+            left: 50%;
+            margin-left: -8px;
+            margin-top: -8px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spinner 0.8s linear infinite;
+        }
+        @keyframes spinner {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
+    <!-- ===== SUCCESS ALERT MODAL ===== -->
+    <div class="alert-overlay" id="successAlert">
+        <div class="alert-box">
+            <div class="alert-icon">✅</div>
+            <div class="alert-title">Invoice Submitted!</div>
+            <div class="alert-message">
+                Your invoice has been successfully submitted.<br>
+                You will receive an email notification once it has been validated.
+            </div>
+            <button class="alert-btn" onclick="closeAlert()">OK</button>
+        </div>
+    </div>
+
     <div style="max-width: 800px; margin: 0 auto; padding: 30px;">
         <div class="supplier-header">
             <div class="supplier-info">
@@ -101,8 +202,8 @@ checkAuth(['supplier']);
                 </div>
 
                 <div style="display: flex; gap: 15px; margin-top: 30px;">
-                    <button type="submit" class="btn btn-primary">Submit Invoice</button>
-                    <button type="reset" class="btn btn-secondary">Clear Form</button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">Submit Invoice</button>
+                    <button type="reset" class="btn btn-secondary" id="resetBtn">Clear Form</button>
                 </div>
             </form>
 
@@ -130,7 +231,16 @@ checkAuth(['supplier']);
     </div>
 
     <script>
-        // File drop handling
+        // ===== ALERT FUNCTIONS =====
+        function showAlert() {
+            document.getElementById('successAlert').classList.add('active');
+        }
+        
+        function closeAlert() {
+            document.getElementById('successAlert').classList.remove('active');
+        }
+
+        // ===== FILE DROP HANDLING =====
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('invoiceFile');
         
@@ -167,10 +277,26 @@ checkAuth(['supplier']);
                 </div>
             `;
         }
-        
-        // Form submission
+
+        // ===== RESET FORM FUNCTION =====
+        function resetForm() {
+            const form = document.getElementById('invoiceForm');
+            form.reset();
+            document.getElementById('filePreview').innerHTML = '';
+            fileInput.value = '';
+        }
+
+        // ===== FORM SUBMISSION =====
         document.getElementById('invoiceForm').addEventListener('submit', function(e) {
             e.preventDefault();
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const originalText = submitBtn.textContent;
+            
+            // Show loading state
+            submitBtn.classList.add('btn-loading');
+            submitBtn.disabled = true;
+            
             const formData = new FormData(this);
             
             fetch('api/submit_invoice.php', {
@@ -179,15 +305,34 @@ checkAuth(['supplier']);
             })
             .then(r => r.json())
             .then(data => {
+                // Remove loading state
+                submitBtn.classList.remove('btn-loading');
+                submitBtn.disabled = false;
+                
                 if (data.success) {
-                    alert('Invoice submitted successfully! You will receive email notification once validated.');
-                    this.reset();
-                    document.getElementById('filePreview').innerHTML = '';
+                    // Show success alert
+                    showAlert();
+                    
+                    // Reset form to blank
+                    resetForm();
+                    
+                    // Refresh submission history
                     loadSubmissionHistory();
                 } else {
-                    alert('Error: ' + data.error);
+                    alert('Error: ' + (data.error || 'Something went wrong'));
                 }
+            })
+            .catch(err => {
+                submitBtn.classList.remove('btn-loading');
+                submitBtn.disabled = false;
+                alert('Network error: ' + err.message);
             });
+        });
+
+        // Clear button also resets file preview
+        document.getElementById('resetBtn').addEventListener('click', function() {
+            document.getElementById('filePreview').innerHTML = '';
+            fileInput.value = '';
         });
         
         function loadSubmissionHistory() {
@@ -195,6 +340,16 @@ checkAuth(['supplier']);
                 .then(r => r.json())
                 .then(data => {
                     const tbody = document.getElementById('historyTableBody');
+                    if (!data.data || data.data.length === 0) {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="5" style="text-align: center; padding: 30px; color: #888;">
+                                    No invoices submitted yet.
+                                </td>
+                            </tr>
+                        `;
+                        return;
+                    }
                     tbody.innerHTML = data.data.map(inv => `
                         <tr>
                             <td>${inv.invoice_number}</td>
@@ -204,6 +359,9 @@ checkAuth(['supplier']);
                             <td><span class="status-badge status-${inv.status.toLowerCase()}">${inv.status}</span></td>
                         </tr>
                     `).join('');
+                })
+                .catch(err => {
+                    console.error('Failed to load history:', err);
                 });
         }
         
@@ -211,6 +369,7 @@ checkAuth(['supplier']);
             fetch('../../auth/logout.php').then(() => location.href = '../../index.php');
         }
         
+        // Load history on page load
         loadSubmissionHistory();
     </script>
 </body>

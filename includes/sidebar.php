@@ -9,7 +9,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 ?>
-<<aside class="sidebar">
+<aside class="sidebar">
     <div class="sidebar-header">
         <div class="sidebar-logo">
             <img src="<?php echo $logoPath; ?>" alt="logo" class="logo"/>
