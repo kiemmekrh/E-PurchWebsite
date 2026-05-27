@@ -6,6 +6,21 @@ let trackingAllData     = [];
 let trackingPage        = 1;
 const TRACKING_PER_PAGE = 10;
 
+// ─── PAGINATION (Pending Tab) ─────────────────────────────────────────────────
+let pendingAllData     = [];
+let pendingPage        = 1;
+const PENDING_PER_PAGE = 10;
+
+// ─── PAGINATION (Completed Tab) ───────────────────────────────────────────────
+let completedAllData     = [];
+let completedPage        = 1;
+const COMPLETED_PER_PAGE = 10;
+
+// ─── PAGINATION (Sync History Tab) ────────────────────────────────────────────
+let syncAllData     = [];
+let syncPage        = 1;
+const SYNC_PER_PAGE = 10;
+
 // ─── TAB SWITCHING ────────────────────────────────────────────────────────────
 
 function switchTab(tab, el) {
@@ -179,41 +194,66 @@ function loadPendingData() {
     fetch('api/get_tracking_data.php?status=Open')
         .then(r => r.json())
         .then(data => {
-            const tbody = document.getElementById('pendingTableBody');
-
-            if (!data.data || data.data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:40px; color:#888;">No pending PO found</td></tr>`;
-                return;
-            }
-
-            tbody.innerHTML = data.data.map(row => `
-                <tr>
-                    <td><strong>${row.po_number}</strong></td>
-                    <td>${row.description || '-'}</td>
-                    <td>${row.supplier_name || '-'}</td>
-                    <td>${formatNumber(row.ordered_quantity)}</td>
-                    <td>${formatNumber(row.received_qty)}</td>
-                    <td style="color:#dc3545; font-weight:bold;">${formatNumber(row.balance_qty)}</td>
-                    <td>${formatDate(row.po_date)}</td>
-                    <td>
-                        <span style="
-                            background: ${row.days_pending > 30 ? '#f8d7da' : '#fff3cd'};
-                            color: ${row.days_pending > 30 ? '#721c24' : '#856404'};
-                            padding: 4px 10px;
-                            border-radius: 12px;
-                            font-size: 12px;
-                            font-weight: 500;
-                        ">
-                            ${row.days_pending} days
-                        </span>
-                    </td>
-                </tr>
-            `).join('');
+            pendingAllData = data.data || [];
+            pendingPage = 1;
+            renderPendingTable();
         })
         .catch(err => {
             showToast('Failed to load pending data.', 'error');
             console.error(err);
         });
+}
+
+function renderPendingTable() {
+    const tbody   = document.getElementById('pendingTableBody');
+    const search  = document.getElementById('searchPending')?.value.toLowerCase() || '';
+    const dayFilter = document.getElementById('filterPendingDays')?.value || 'all';
+
+    let filtered = pendingAllData.filter(row => {
+        const matchSearch = !search ||
+            row.po_number.toLowerCase().includes(search) ||
+            (row.description || '').toLowerCase().includes(search) ||
+            (row.supplier_name || '').toLowerCase().includes(search);
+        const matchDays = dayFilter === 'all' ||
+            (dayFilter === 'overdue' && row.days_pending > 30) ||
+            (dayFilter === 'normal'  && row.days_pending <= 30);
+        return matchSearch && matchDays;
+    });
+
+    const total      = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / PENDING_PER_PAGE));
+    pendingPage      = Math.min(pendingPage, totalPages);
+    const start      = (pendingPage - 1) * PENDING_PER_PAGE;
+    const pageData   = filtered.slice(start, start + PENDING_PER_PAGE);
+
+    if (pageData.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:40px; color:#888;">No pending PO found</td></tr>`;
+        renderTabPagination('pending', total, totalPages);
+        return;
+    }
+
+    tbody.innerHTML = pageData.map(row => `
+        <tr>
+            <td><strong>${row.po_number}</strong></td>
+            <td>${row.description || '-'}</td>
+            <td>${row.supplier_name || '-'}</td>
+            <td>${formatNumber(row.ordered_quantity)}</td>
+            <td>${formatNumber(row.received_qty)}</td>
+            <td style="color:#dc3545; font-weight:bold;">${formatNumber(row.balance_qty)}</td>
+            <td>${formatDate(row.po_date)}</td>
+            <td>
+                <span style="
+                    background: ${row.days_pending > 30 ? '#f8d7da' : '#fff3cd'};
+                    color: ${row.days_pending > 30 ? '#721c24' : '#856404'};
+                    padding: 4px 10px; border-radius: 12px;
+                    font-size: 12px; font-weight: 500;">
+                    ${row.days_pending} days
+                </span>
+            </td>
+        </tr>
+    `).join('');
+
+    renderTabPagination('pending', total, totalPages);
 }
 
 // ─── COMPLETED TAB ───────────────────────────────────────────────────────────
@@ -222,42 +262,72 @@ function loadCompletedData() {
     fetch('api/get_tracking_data.php?status=Completed')
         .then(r => r.json())
         .then(data => {
-            const tbody = document.getElementById('completedTableBody');
-
-            if (!data.data || data.data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:40px; color:#888;">No completed PO found</td></tr>`;
-                return;
-            }
-
-            tbody.innerHTML = data.data.map(row => {
-                const daysToComplete = row.last_gr_date
-                    ? Math.ceil((new Date(row.last_gr_date) - new Date(row.po_date)) / (1000 * 60 * 60 * 24))
-                    : '-';
-
-                return `
-                    <tr>
-                        <td><strong>${row.po_number}</strong></td>
-                        <td>${row.description || '-'}</td>
-                        <td>${row.supplier_name || '-'}</td>
-                        <td>${formatNumber(row.ordered_quantity)}</td>
-                        <td>${row.gr_count} GR(s)</td>
-                        <td>${row.last_gr_date ? formatDate(row.last_gr_date) : '-'}</td>
-                        <td>
-                            <span style="
-                                background:#d4edda; color:#155724;
-                                padding:4px 10px; border-radius:12px; font-size:12px;
-                            ">
-                                ${daysToComplete} days
-                            </span>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+            completedAllData = data.data || [];
+            completedPage = 1;
+            renderCompletedTable();
         })
         .catch(err => {
             showToast('Failed to load completed data.', 'error');
             console.error(err);
         });
+}
+
+function renderCompletedTable() {
+    const tbody       = document.getElementById('completedTableBody');
+    const search      = document.getElementById('searchCompleted')?.value.toLowerCase() || '';
+    const speedFilter = document.getElementById('filterCompletedSpeed')?.value || 'all';
+
+    let filtered = completedAllData.filter(row => {
+        const daysToComplete = row.last_gr_date
+            ? Math.ceil((new Date(row.last_gr_date) - new Date(row.po_date)) / (1000 * 60 * 60 * 24))
+            : 0;
+        const matchSearch = !search ||
+            row.po_number.toLowerCase().includes(search) ||
+            (row.description || '').toLowerCase().includes(search) ||
+            (row.supplier_name || '').toLowerCase().includes(search);
+        const matchSpeed = speedFilter === 'all' ||
+            (speedFilter === 'fast' && daysToComplete < 30) ||
+            (speedFilter === 'slow' && daysToComplete >= 30);
+        return matchSearch && matchSpeed;
+    });
+
+    const total      = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / COMPLETED_PER_PAGE));
+    completedPage    = Math.min(completedPage, totalPages);
+    const start      = (completedPage - 1) * COMPLETED_PER_PAGE;
+    const pageData   = filtered.slice(start, start + COMPLETED_PER_PAGE);
+
+    if (pageData.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:40px; color:#888;">No completed PO found</td></tr>`;
+        renderTabPagination('completed', total, totalPages);
+        return;
+    }
+
+    tbody.innerHTML = pageData.map(row => {
+        const daysToComplete = row.last_gr_date
+            ? Math.ceil((new Date(row.last_gr_date) - new Date(row.po_date)) / (1000 * 60 * 60 * 24))
+            : '-';
+        return `
+            <tr>
+                <td><strong>${row.po_number}</strong></td>
+                <td>${row.description || '-'}</td>
+                <td>${row.supplier_name || '-'}</td>
+                <td>${formatNumber(row.ordered_quantity)}</td>
+                <td>${row.gr_count} GR(s)</td>
+                <td>${row.last_gr_date ? formatDate(row.last_gr_date) : '-'}</td>
+                <td>
+                    <span style="
+                        background:${daysToComplete < 30 ? '#d4edda' : '#fff3cd'};
+                        color:${daysToComplete < 30 ? '#155724' : '#856404'};
+                        padding:4px 10px; border-radius:12px; font-size:12px;">
+                        ${daysToComplete} days
+                    </span>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    renderTabPagination('completed', total, totalPages);
 }
 
 // ─── SYNC HISTORY TAB ────────────────────────────────────────────────────────
@@ -266,29 +336,51 @@ function loadSyncHistory() {
     fetch('api/get_sync_history.php')
         .then(r => r.json())
         .then(data => {
-            const tbody = document.getElementById('syncHistoryBody');
-
-            if (!data.success || !data.data || data.data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:40px; color:#888;">No sync history found</td></tr>`;
-                return;
-            }
-
-            tbody.innerHTML = data.data.map(log => `
-                <tr>
-                    <td>${formatDateTime(log.created_at)}</td>
-                    <td>${log.user_name || '-'}</td>
-                    <td>${log.filename || log.details || '-'}</td>
-                    <td>${log.records_processed || '-'}</td>
-                    <td><span class="badge-gr badge-inserted">${log.gr_inserted ?? '-'}</span></td>
-                    <td><span class="badge-gr badge-skipped">${log.gr_skipped ?? '-'}</span></td>
-                    <td><span class="status-badge status-completed">Success</span></td>
-                </tr>
-            `).join('');
+            syncAllData = (data.success && data.data) ? data.data : [];
+            syncPage = 1;
+            renderSyncHistoryTable();
         })
         .catch(err => {
             showToast('Failed to load sync history.', 'error');
             console.error(err);
         });
+}
+
+function renderSyncHistoryTable() {
+    const tbody  = document.getElementById('syncHistoryBody');
+    const search = document.getElementById('searchHistory')?.value.toLowerCase() || '';
+
+    let filtered = syncAllData.filter(log => {
+        return !search ||
+            (log.filename || log.details || '').toLowerCase().includes(search) ||
+            (log.user_name || '').toLowerCase().includes(search);
+    });
+
+    const total      = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / SYNC_PER_PAGE));
+    syncPage         = Math.min(syncPage, totalPages);
+    const start      = (syncPage - 1) * SYNC_PER_PAGE;
+    const pageData   = filtered.slice(start, start + SYNC_PER_PAGE);
+
+    if (pageData.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:40px; color:#888;">No sync history found</td></tr>`;
+        renderTabPagination('history', total, totalPages);
+        return;
+    }
+
+    tbody.innerHTML = pageData.map(log => `
+        <tr>
+            <td>${formatDateTime(log.created_at)}</td>
+            <td>${log.user_name || '-'}</td>
+            <td>${log.filename || log.details || '-'}</td>
+            <td>${log.records_processed || '-'}</td>
+            <td><span class="badge-gr badge-inserted">${log.gr_inserted ?? '-'}</span></td>
+            <td><span class="badge-gr badge-skipped">${log.gr_skipped ?? '-'}</span></td>
+            <td><span class="status-badge status-completed">Success</span></td>
+        </tr>
+    `).join('');
+
+    renderTabPagination('history', total, totalPages);
 }
 
 // ─── PO DETAIL MODAL ─────────────────────────────────────────────────────────
@@ -525,11 +617,56 @@ function uploadZMM039() {
 // ─── EXPORT ───────────────────────────────────────────────────────────────────
 
 function exportTracking() {
+    const date = new Date().toISOString().split('T')[0];
+
+    // Overview tab: export from data array (avoids GR Details multiline DOM issue)
+    if (currentTab === 'overview') {
+        if (!trackingAllData || trackingAllData.length === 0) {
+            showToast('No data to export.', 'error');
+            return;
+        }
+        const headers = [
+            '"PO NUMBER"', '"PO ITEM"', '"DESCRIPTION"', '"VENDOR"',
+            '"ORDERED QTY"', '"RECEIVED QTY"', '"BALANCE"',
+            '"GR DETAILS"', '"STATUS"', '"LAST GR DATE"'
+        ];
+        const rows = trackingAllData.map(row => {
+            // Flatten GR details into a single readable string
+            let grSummary = 'No GR yet';
+            if (row.gr_details) {
+                grSummary = row.gr_details.split(';;').map(gr => {
+                    const [num, grDate, qty] = gr.split('|');
+                    return `${num} (${grDate}, Qty: ${qty})`;
+                }).join(' | ');
+            }
+            return [
+                `"${row.po_number}"`,
+                `"${row.po_item}"`,
+                `"${(row.description || '-').replace(/"/g, '""')}"`,
+                `"${(row.supplier_name || '-').replace(/"/g, '""')}"`,
+                `"${parseFloat(row.ordered_quantity).toLocaleString('id-ID')}"`,
+                `"${parseFloat(row.received_qty || 0).toLocaleString('id-ID')}"`,
+                `"${parseFloat(row.balance_qty || 0).toLocaleString('id-ID')}"`,
+                `"${grSummary.replace(/"/g, '""')}"`,
+                `"${row.status}"`,
+                `"${row.last_gr_date ? row.last_gr_date : '-'}"`
+            ].join(',');
+        });
+        const csv = [headers.join(','), ...rows].join('\n');
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `PO_Tracking_${date}.csv`;
+        link.click();
+        showToast('Export successful!', 'success');
+        return;
+    }
+
+    // Other tabs: export from DOM table (no multiline GR issue on those tabs)
     const tableMap = {
-        'overview':   { id: 'trackingTable',   name: 'PO_Tracking'     },
-        'pending':    { id: 'pendingTable',     name: 'Pending_PO'      },
-        'completed':  { id: 'completedTable',   name: 'Completed_PO'    },
-        'history':    { id: 'syncHistoryTable', name: 'Sync_History'    }
+        'pending':   { id: 'pendingTable',     name: 'Pending_PO'   },
+        'completed': { id: 'completedTable',   name: 'Completed_PO' },
+        'history':   { id: 'syncHistoryTable', name: 'Sync_History' }
     };
 
     const target = tableMap[currentTab];
@@ -545,7 +682,7 @@ function exportTracking() {
         .filter(tr => !tr.querySelector('td[colspan]'))
         .map(row =>
             Array.from(row.querySelectorAll('td'))
-                .map(td => `"${td.textContent.trim().replace(/"/g, '""')}"`)
+                .map(td => `"${td.textContent.trim().replace(/\s+/g, ' ').replace(/"/g, '""')}"`)
         );
 
     if (rows.length === 0) {
@@ -556,18 +693,75 @@ function exportTracking() {
     const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    const date = new Date().toISOString().split('T')[0];
     link.href = URL.createObjectURL(blob);
     link.download = `${target.name}_${date}.csv`;
     link.click();
     showToast('Export successful!', 'success');
 }
 
+// ─── TAB PAGINATION (Pending / Completed / Sync History) ─────────────────────
+
+function renderTabPagination(tab, total, totalPages) {
+    const containerMap = {
+        'pending':   '#tab-pending .data-table-container',
+        'completed': '#tab-completed .data-table-container',
+        'history':   '#tab-history .data-table-container',
+    };
+    const pageMap = { 'pending': pendingPage, 'completed': completedPage, 'history': syncPage };
+    const nameMap = { 'pending': 'Pending_PO', 'completed': 'Completed_PO', 'history': 'Sync_History' };
+
+    const existing = document.getElementById(`${tab}Pagination`);
+    if (existing) existing.remove();
+
+    const container = document.querySelector(containerMap[tab]);
+    if (!container) return;
+
+    const page  = pageMap[tab];
+    const start = total === 0 ? 0 : (page - 1) * PENDING_PER_PAGE + 1;
+    const end   = Math.min(page * PENDING_PER_PAGE, total);
+
+    const pag = document.createElement('div');
+    pag.id = `${tab}Pagination`;
+    pag.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-top:1px solid #eee; font-size:13px; color:#555;';
+    pag.innerHTML = `
+        <span>${total === 0 ? '0 records' : `Showing ${start}–${end} of ${total} records`}</span>
+        <div style="display:flex; gap:6px; align-items:center;">
+            <button onclick="changeTabPage('${tab}', -1)"
+                    style="padding:6px 12px; border:1px solid #ddd; border-radius:6px; background:white; cursor:pointer; ${page <= 1 ? 'opacity:0.4; pointer-events:none;' : ''}">
+                ← Prev
+            </button>
+            <span style="padding:6px 10px; font-weight:600;">Page ${page} of ${totalPages}</span>
+            <button onclick="changeTabPage('${tab}', 1)"
+                    style="padding:6px 12px; border:1px solid #ddd; border-radius:6px; background:white; cursor:pointer; ${page >= totalPages ? 'opacity:0.4; pointer-events:none;' : ''}">
+                Next →
+            </button>
+        </div>
+    `;
+    container.appendChild(pag);
+}
+
+function changeTabPage(tab, dir) {
+    if (tab === 'pending') {
+        const total = document.getElementById('pendingTableBody')
+            ? Math.ceil(pendingAllData.length / PENDING_PER_PAGE) : 1;
+        pendingPage = Math.min(total, Math.max(1, pendingPage + dir));
+        renderPendingTable();
+    } else if (tab === 'completed') {
+        const total = Math.ceil(completedAllData.length / COMPLETED_PER_PAGE);
+        completedPage = Math.min(total, Math.max(1, completedPage + dir));
+        renderCompletedTable();
+    } else if (tab === 'history') {
+        const total = Math.ceil(syncAllData.length / SYNC_PER_PAGE);
+        syncPage = Math.min(total, Math.max(1, syncPage + dir));
+        renderSyncHistoryTable();
+    }
+}
+
 // ─── FILTER HANDLERS ─────────────────────────────────────────────────────────
 
 // Real-time search filter for overview tab
 function initFilterHandlers() {
-    const searchInput = document.getElementById('searchTracking');
+    const searchInput  = document.getElementById('searchTracking');
     const statusFilter = document.getElementById('filterTrackingStatus');
 
     if (searchInput) {
@@ -577,9 +771,46 @@ function initFilterHandlers() {
             debounceTimer = setTimeout(loadTrackingData, 400);
         });
     }
-
     if (statusFilter) {
         statusFilter.addEventListener('change', loadTrackingData);
+    }
+
+    // Pending tab filters
+    const searchPending = document.getElementById('searchPending');
+    const filterPendingDays = document.getElementById('filterPendingDays');
+    if (searchPending) {
+        let d;
+        searchPending.addEventListener('input', () => {
+            clearTimeout(d);
+            d = setTimeout(() => { pendingPage = 1; renderPendingTable(); }, 400);
+        });
+    }
+    if (filterPendingDays) {
+        filterPendingDays.addEventListener('change', () => { pendingPage = 1; renderPendingTable(); });
+    }
+
+    // Completed tab filters
+    const searchCompleted = document.getElementById('searchCompleted');
+    const filterCompletedSpeed = document.getElementById('filterCompletedSpeed');
+    if (searchCompleted) {
+        let d;
+        searchCompleted.addEventListener('input', () => {
+            clearTimeout(d);
+            d = setTimeout(() => { completedPage = 1; renderCompletedTable(); }, 400);
+        });
+    }
+    if (filterCompletedSpeed) {
+        filterCompletedSpeed.addEventListener('change', () => { completedPage = 1; renderCompletedTable(); });
+    }
+
+    // Sync history search
+    const searchHistory = document.getElementById('searchHistory');
+    if (searchHistory) {
+        let d;
+        searchHistory.addEventListener('input', () => {
+            clearTimeout(d);
+            d = setTimeout(() => { syncPage = 1; renderSyncHistoryTable(); }, 400);
+        });
     }
 }
 
