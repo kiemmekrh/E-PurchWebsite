@@ -2,7 +2,16 @@
 // File: modules/dashboard/index.php
 session_start();
 require_once '../../auth/check_session.php';
-checkAuth(['purchasing_staff', 'admin', 'manager']);
+
+// Admin & Purchasing Staff boleh akses dashboard
+// Manager juga boleh (jika ada di masa depan)
+checkAuth(['admin', 'purchasing_staff', 'manager']);
+
+// Jika supplier coba akses, redirect ke invoice submit
+if (isSupplier()) {
+    header('Location: /e-purch/modules/invoice/submit.php');
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -23,9 +32,11 @@ checkAuth(['purchasing_staff', 'admin', 'manager']);
                 <p class="welcome-text">Welcome, <?php echo htmlspecialchars($_SESSION['name']); ?>!</p>
             </div>
             <div class="header-actions">
+                <?php if (isPurchasingStaff() || isManager()): ?>
                 <button class="btn btn-warning btn-small" onclick="showUploadModal()">
                     ☁️ Upload ZMM039
                 </button>
+                <?php endif; ?>
                 <button class="btn btn-success btn-small" onclick="exportTable('poTable')">
                     ⬇️ Export
                 </button>
