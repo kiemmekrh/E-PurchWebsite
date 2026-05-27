@@ -1,7 +1,6 @@
 // File: assets/js/dashboard.js
 let currentPage = 1;
 let rowsPerPage = 10;
-let uploadedFile = null;
 let allData = [];
 
 // ─── LOAD & RENDER ───────────────────────────────────────────────────────────
@@ -46,7 +45,30 @@ function renderPOTable(data) {
         return;
     }
 
-    tbody.innerHTML = data.map(po => `
+    tbody.innerHTML = data.map((po, idx) => {
+        // GR Numbers — collapsed if more than 2
+        let grHTML = '-';
+        if (po.gr_numbers && po.gr_numbers !== '-') {
+            const grList = po.gr_numbers.split(', ').map(gr => `<div style="font-size:12px;">${gr}</div>`);
+            const MAX_VISIBLE = 2;
+            if (grList.length <= MAX_VISIBLE) {
+                grHTML = grList.join('');
+            } else {
+                const hiddenCount = grList.length - MAX_VISIBLE;
+                grHTML = `
+                    ${grList.slice(0, MAX_VISIBLE).join('')}
+                    <div id="dash-gr-more-${idx}" style="display:none;">
+                        ${grList.slice(MAX_VISIBLE).join('')}
+                    </div>
+                    <span onclick="toggleDashGR(${idx}, event)"
+                          id="dash-gr-toggle-${idx}"
+                          style="font-size:11px; color:#4285f4; cursor:pointer; user-select:none;">
+                        +${hiddenCount} more
+                    </span>`;
+            }
+        }
+
+        return `
         <tr>
             <td><input type="checkbox" class="row-check" data-id="${po.po_number}"></td>
             <td><strong>${po.po_number}</strong></td>
@@ -55,18 +77,28 @@ function renderPOTable(data) {
             <td>${po.supplier_name || '-'}</td>
             <td>${formatDate(po.po_date)}</td>
             <td>${formatNumber(po.ordered_quantity)}</td>
-            <td>${formatNumber(po.balance_qty || 0)}</td>
             <td>${formatNumber(po.received_qty || 0)}</td>
-            <td>${po.gr_numbers || '-'}</td>
+            <td style="${parseFloat(po.balance_qty) > 0 ? 'color:#dc3545; font-weight:bold;' : 'color:#28a745;'}">${formatNumber(po.balance_qty || 0)}</td>
+            <td>${grHTML}</td>
             <td>${po.last_gr_date ? formatDate(po.last_gr_date) : '-'}</td>
             <td><span class="status-badge status-${po.status.toLowerCase()}">${po.status}</span></td>
         </tr>
-    `).join('');
+    `}).join('');
 
     // Select all checkbox
     document.getElementById('selectAll').addEventListener('change', function () {
         document.querySelectorAll('.row-check').forEach(cb => cb.checked = this.checked);
     });
+}
+
+function toggleDashGR(idx, e) {
+    e.stopPropagation();
+    const more   = document.getElementById(`dash-gr-more-${idx}`);
+    const toggle = document.getElementById(`dash-gr-toggle-${idx}`);
+    if (!more) return;
+    const isHidden = more.style.display === 'none';
+    more.style.display = isHidden ? 'block' : 'none';
+    toggle.textContent = isHidden ? 'Show less' : `+${more.querySelectorAll('div').length} more`;
 }
 
 function updateStats(stats) {
@@ -113,171 +145,6 @@ function resetFilters() {
     document.getElementById('filterDateTo').value = '';
     currentPage = 1;
     loadDashboardData();
-}
-
-// ─── UPLOAD MODAL ─────────────────────────────────────────────────────────────
-
-function showUploadModal() {
-    document.getElementById('uploadModal').classList.add('active');
-}
-
-function hideUploadModal() {
-    document.getElementById('uploadModal').classList.remove('active');
-    document.getElementById('fileList').innerHTML = '';
-    document.getElementById('uploadBtn').disabled = true;
-    document.getElementById('uploadProgress').style.display = 'none';
-    document.getElementById('progressFill').style.width = '0%';
-    document.getElementById('progressText').textContent = '0%';
-    uploadedFile = null;
-    // Reset file input
-    const fileInput = document.getElementById('fileInput');
-    if (fileInput) fileInput.value = '';
-}
-
-function initUploadHandlers() {
-    const dropZone = document.getElementById('dropZone');
-    const fileInput = document.getElementById('fileInput');
-
-    dropZone.addEventListener('click', () => fileInput.click());
-
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.style.borderColor = '#4285f4';
-        dropZone.style.background = '#e3f2fd';
-    });
-
-    dropZone.addEventListener('dragleave', () => {
-        dropZone.style.borderColor = '#ddd';
-        dropZone.style.background = '#f8f9fa';
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.style.borderColor = '#ddd';
-        dropZone.style.background = '#f8f9fa';
-        const file = e.dataTransfer.files[0];
-        if (file) handleFile(file);
-    });
-
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files[0]) handleFile(e.target.files[0]);
-    });
-}
-
-function handleFile(file) {
-    // Validate extension
-    const allowed = ['xlsx', 'xls'];
-    const ext = file.name.split('.').pop().toLowerCase();
-    if (!allowed.includes(ext)) {
-        showToast('Invalid file type. Please upload .xlsx or .xls file.', 'error');
-        return;
-    }
-
-    uploadedFile = file;
-    document.getElementById('fileList').innerHTML = `
-        <div class="file-item">
-            <div class="file-icon">📎</div>
-            <div class="file-info">
-                <div class="file-name">${file.name}</div>
-                <div class="file-size">${(file.size / 1024).toFixed(1)} KB</div>
-            </div>
-            <span class="file-remove" onclick="clearUpload()">✕</span>
-        </div>
-    `;
-    document.getElementById('uploadBtn').disabled = false;
-}
-
-function clearUpload() {
-    uploadedFile = null;
-    document.getElementById('fileList').innerHTML = '';
-    document.getElementById('uploadBtn').disabled = true;
-    const fileInput = document.getElementById('fileInput');
-    if (fileInput) fileInput.value = '';
-}
-
-function processUpload() {
-    if (!uploadedFile) return;
-
-    const formData = new FormData();
-    formData.append('file', uploadedFile);
-
-    const progressBar = document.getElementById('uploadProgress');
-    const progressFill = document.getElementById('progressFill');
-    const progressText = document.getElementById('progressText');
-    const uploadBtn = document.getElementById('uploadBtn');
-
-    progressBar.style.display = 'block';
-    uploadBtn.disabled = true;
-    uploadBtn.textContent = 'Processing...';
-
-    // Animate progress bar while waiting
-    let progress = 0;
-    const interval = setInterval(() => {
-        if (progress < 85) {
-            progress += 5;
-            progressFill.style.width = progress + '%';
-            progressText.textContent = progress + '%';
-        }
-    }, 150);
-
-    fetch('api/upload_zmm039.php', {
-        method: 'POST',
-        body: formData
-    })
-        .then(r => r.json())
-        .then(data => {
-            clearInterval(interval);
-            progressFill.style.width = '100%';
-            progressText.textContent = '100%';
-
-            setTimeout(() => {
-                if (data.success) {
-                    showToast(`✅ Success! ${data.processed} records processed.`, 'success');
-                    hideUploadModal();
-                    loadDashboardData();
-                } else {
-                    showToast('❌ Error: ' + data.error, 'error');
-                    uploadBtn.disabled = false;
-                    uploadBtn.textContent = 'Upload & Process';
-                    progressBar.style.display = 'none';
-                }
-            }, 500);
-        })
-        .catch(err => {
-            clearInterval(interval);
-            showToast('Connection error during upload.', 'error');
-            uploadBtn.disabled = false;
-            uploadBtn.textContent = 'Upload & Process';
-            progressBar.style.display = 'none';
-            console.error(err);
-        });
-}
-
-// ─── EXPORT ───────────────────────────────────────────────────────────────────
-
-function exportTable(tableId) {
-    const table = document.getElementById(tableId);
-    if (!table) return;
-
-    const headers = Array.from(table.querySelectorAll('thead th'))
-        .map(th => th.textContent.replace(/[↓↑↕]/g, '').trim())
-        .filter((_, i) => i !== 0); // skip checkbox column
-
-    const rows = Array.from(table.querySelectorAll('tbody tr'))
-        .filter(tr => !tr.querySelector('td[colspan]')) // skip "no data" row
-        .map(row =>
-            Array.from(row.querySelectorAll('td'))
-                .filter((_, i) => i !== 0) // skip checkbox column
-                .map(td => `"${td.textContent.trim().replace(/"/g, '""')}"`)
-        );
-
-    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `PO_Dashboard_${formatDateForFilename(new Date())}.csv`;
-    link.click();
-    showToast('Export successful!', 'success');
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
