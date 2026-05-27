@@ -2,7 +2,7 @@
 // File: modules/comparison/index.php
 session_start();
 require_once '../../auth/check_session.php';
-checkAuth(['purchasing_staff', 'admin', 'manager']);
+checkAuth(['purchasing_staff', 'manager']);
 ?>
 <!DOCTYPE html>
 <html lang="en">
