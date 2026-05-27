@@ -2,7 +2,7 @@
 // File: modules/invoice/index.php (Invoice Tracker for Staff)
 session_start();
 require_once '../../auth/check_session.php';
-checkAuth(['purchasing_staff', 'admin', 'manager']);
+checkAuth(['purchasing_staff', 'manager']);
 ?>
 <!DOCTYPE html>
 <html lang="en">
