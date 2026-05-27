@@ -179,6 +179,15 @@ checkAuth(['purchasing_staff', 'manager']);
             <div class="data-table-container">
                 <div class="table-header">
                     <h3 class="table-title">⏳ Pending — Awaiting Goods Receipt</h3>
+                    <div class="filters-bar" style="margin:0; flex-wrap:nowrap;">
+                        <input type="text" class="filter-input" placeholder="🔍 Search PO / Description / Vendor"
+                               id="searchPending" style="min-width:220px;">
+                        <select class="filter-select" id="filterPendingDays">
+                            <option value="all">All Days Pending</option>
+                            <option value="overdue">Overdue (&gt;30 days)</option>
+                            <option value="normal">On Track (≤30 days)</option>
+                        </select>
+                    </div>
                 </div>
                 <table class="data-table" id="pendingTable">
                     <thead>
@@ -203,6 +212,15 @@ checkAuth(['purchasing_staff', 'manager']);
             <div class="data-table-container">
                 <div class="table-header">
                     <h3 class="table-title">✅ Completed — Fully Received</h3>
+                    <div class="filters-bar" style="margin:0; flex-wrap:nowrap;">
+                        <input type="text" class="filter-input" placeholder="🔍 Search PO / Description / Vendor"
+                               id="searchCompleted" style="min-width:220px;">
+                        <select class="filter-select" id="filterCompletedSpeed">
+                            <option value="all">All Completion Speed</option>
+                            <option value="fast">Fast (&lt;30 days)</option>
+                            <option value="slow">Slow (≥30 days)</option>
+                        </select>
+                    </div>
                 </div>
                 <table class="data-table" id="completedTable">
                     <thead>
@@ -226,6 +244,10 @@ checkAuth(['purchasing_staff', 'manager']);
             <div class="data-table-container">
                 <div class="table-header">
                     <h3 class="table-title">🕓 ZMM039 Upload History</h3>
+                    <div class="filters-bar" style="margin:0; flex-wrap:nowrap;">
+                        <input type="text" class="filter-input" placeholder="🔍 Search filename / uploader"
+                               id="searchHistory" style="min-width:220px;">
+                    </div>
                 </div>
                 <table class="data-table" id="syncHistoryTable">
                     <thead>
