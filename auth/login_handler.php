@@ -39,17 +39,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_id'] = $user['user_id'];
             $_SESSION['name'] = $user['name'];
             $_SESSION['email'] = $user['email'];
-            $_SESSION['role'] = $user['role'];
+            $_SESSION['role'] = $user['role']; // 'admin' atau 'purchasing_staff'
             
-            header('Location: ../modules/dashboard/index.php');  // <-- Fix path juga
+            // Redirect berdasarkan role
+            if ($user['role'] === 'admin') {
+                header('Location: ../modules/dashboard/index.php');
+            } else {
+                header('Location: ../modules/dashboard/index.php');
+            }
             exit;
         } else {
             $_SESSION['login_error'] = 'Invalid email or password';
             $_SESSION['last_login_type'] = 'staff';
-            header('Location: ../index.php');  // <-- Fix path
+            header('Location: ../index.php');
             exit;
         }
     } else {
+        // Supplier login (tidak perlu diubah)
         $email = $_POST['email'] ?? '';
         $password = $_POST['password'] ?? '';
         
@@ -61,12 +67,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['email'] = $supplier['email'];
             $_SESSION['role'] = 'supplier';
             
-            header('Location: ../modules/invoice/submit.php');  // <-- Fix path
+            header('Location: ../modules/invoice/submit.php');
             exit;
         } else {
             $_SESSION['login_error'] = 'Invalid email or password';
             $_SESSION['last_login_type'] = 'supplier';
-            header('Location: ../index.php');  // <-- Fix path
+            header('Location: ../index.php');
             exit;
         }
     }
