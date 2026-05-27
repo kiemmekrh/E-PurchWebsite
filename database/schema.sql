@@ -133,3 +133,27 @@ INSERT INTO Purchase_Order (po_number, po_item, po_date, ordered_quantity, mater
 ('4100072449', '10', '2026-01-24', 10, 'SE100', 'Plastic Wrap', 1),
 ('4100072544', '10', '2026-03-04', 5,  'SE100', 'Ayam Goreng',  5),
 ('4100072545', '10', '2026-02-08', 15, 'SE100', 'Karton Box A', 3);
+
+INSERT INTO `User` (`name`, `email`, `password`, `role`, `status`, `created_at`, `updated_at`) 
+VALUES (
+    'Purchasing Staff 1', 
+    'purchasing@inaco.com', 
+    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',  -- password: password
+    'purchasing_staff', 
+    'active', 
+    NOW(), 
+    NOW()
+);
+INSERT INTO `User` (`name`, `email`, `password`, `role`, `status`, `created_at`, `updated_at`) 
+VALUES (
+    'Manager 1', 
+    'manager@inaco.com', 
+    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',  -- password: password
+    'manager', 
+    'active', 
+    NOW(), 
+    NOW()
+);
+UPDATE `User` 
+SET `password` = '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi' 
+WHERE `user_id` = 1;
