@@ -381,7 +381,7 @@ function updateComparison(prefix) {
     const validation = validateRequiredFields(prefix);
     if (!validation.valid) {
         highlightInvalidFields(prefix, validation.missing);
-        showToast('Field berikut wajib diisi untuk status FINAL: ' + validation.missing.join(', '), 'error');
+        showToast('The following fields must be filled in for FINAL status: ' + validation.missing.join(', '), 'error');
         return;
     }
 
@@ -1269,7 +1269,7 @@ function generateSameAsLastOrder() {
 // ==================== CLEAR TABLE ====================
 
 function clearComparisonTable(viewId) {
-    if (!confirm('Apakah Anda yakin ingin mengosongkan semua data di tabel?')) {
+    if (!confirm('Are you sure you want to clear all the data in the table?')) {
         return;
     }
 
@@ -1450,7 +1450,7 @@ function exportSelectedToExcel(filename = "comparison_export.csv") {
 }
 
 function deleteComparison(id) {
-    if (!confirm('Apakah Anda yakin ingin menghapus data ini?')) {
+    if (!confirm('Are you sure you want to delete this data?')) {
         return;
     }
 
@@ -1462,10 +1462,10 @@ function deleteComparison(id) {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            showToast('Data berhasil dihapus');
+            showToast('The data has been successfully deleted');
             loadComparisonHistory();
         } else {
-            showToast('Error: ' + (data.error || 'Gagal menghapus'), 'error');
+            showToast('Error: ' + (data.error || 'Failed to delete'), 'error');
         }
     })
     .catch(err => {
