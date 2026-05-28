@@ -638,7 +638,7 @@ checkAuth(['purchasing_staff', 'manager']);
             <div class="page-header" style="margin-bottom: 20px;">
                 <div>
                     <h1 class="page-title">Create Comparison Table</h1>
-                    <p class="welcome-text">Last Order diisi otomatis dari history. Plan Order bisa diisi manual. Gap dihitung otomatis.</p>
+                    <p class="welcome-text">Last Order is automatically populated from the history</p>
                 </div>
             </div>
 
