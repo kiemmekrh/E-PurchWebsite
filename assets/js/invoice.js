@@ -41,9 +41,6 @@ function loadInvoices() {
 
 // ==================== PAGINATION FUNCTIONS ====================
 
-/**
- * Render invoice table dengan pagination
- */
 function renderTableWithPagination(data, page = 1, perPage = 10) {
     const tbody = document.getElementById('invoiceTableBody');
     if (!tbody) {
@@ -54,7 +51,7 @@ function renderTableWithPagination(data, page = 1, perPage = 10) {
     if (!data || data.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="9" style="text-align:center; padding: 40px; color: #888;">
+                <td colspan="10" style="text-align:center; padding: 40px; color: #888;">
                     📭 No invoices found
                 </td>
             </tr>`;
@@ -76,7 +73,21 @@ function renderTableWithPagination(data, page = 1, perPage = 10) {
     const endIndex = Math.min(startIndex + perPage, totalItems);
     const pageData = data.slice(startIndex, endIndex);
 
-    tbody.innerHTML = pageData.map(inv => `
+    tbody.innerHTML = pageData.map(inv => {
+        // Format validated_at timestamp
+        let validatedAtHtml = '<span style="color: #bbb;">—</span>';
+        if (inv.validated_at) {
+            const d = new Date(inv.validated_at);
+            validatedAtHtml = `
+                <div class="timestamp-cell">
+                    <div class="date-part">${d.toLocaleDateString('id-ID')}</div>
+                    <div class="time-part">${d.toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'})}</div>
+                    ${inv.validated_by_name ? `<div class="validated-by">by ${escapeHtml(inv.validated_by_name)}</div>` : ''}
+                </div>
+            `;
+        }
+        
+        return `
         <tr>
             <td><input type="checkbox" class="inv-checkbox" value="${inv.invoice_id}"></td>
             <td>${escapeHtml(inv.invoice_number)}</td>
@@ -86,19 +97,17 @@ function renderTableWithPagination(data, page = 1, perPage = 10) {
             <td>IDR ${parseFloat(inv.amount || 0).toLocaleString('id-ID')}</td>
             <td><span class="status-badge status-${(inv.status || 'pending').toLowerCase()}">${inv.status || 'Pending'}</span></td>
             <td>${escapeHtml(inv.validated_by_name || '-')}</td>
+            <td>${validatedAtHtml}</td>
             <td>
                 <button class="btn btn-primary btn-small" onclick="showValidateModal(${inv.invoice_id})">Validate</button>
                 <a href="${getFileUrl(inv.file_path)}" target="_blank" class="btn btn-secondary btn-small" title="View File">📎</a>
             </td>
         </tr>
-    `).join('');
+    `}).join('');
 
     renderInvoicePaginationControls(totalItems, page, perPage);
 }
 
-/**
- * Render pagination controls untuk invoice table
- */
 function renderInvoicePaginationControls(totalItems, currentPage, perPage) {
     let paginationContainer = document.getElementById('invoicePaginationContainer');
 
@@ -202,7 +211,7 @@ function changeInvoiceRowsPerPage(newPerPage) {
 }
 
 // ============================================
-// EXPORT TO EXCEL — HANYA ROW YANG DICENTANG
+// EXPORT TO EXCEL
 // ============================================
 function exportTable(tableId) {
     const table = document.getElementById(tableId);
@@ -225,7 +234,8 @@ function exportTable(tableId) {
         'INVOICE DATE',
         'AMOUNT',
         'STATUS',
-        'VALIDATED BY'
+        'VALIDATED BY',
+        'VALIDATED AT'
     ];
 
     const rows = Array.from(checkedBoxes).map(checkbox => {
@@ -239,7 +249,8 @@ function exportTable(tableId) {
             cells[4]?.textContent.trim() || '',
             cells[5]?.textContent.trim() || '',
             cells[6]?.textContent.trim() || '',
-            cells[7]?.textContent.trim() || ''
+            cells[7]?.textContent.trim() || '',
+            cells[8]?.textContent.trim() || ''
         ].map(text => `"${text.replace(/"/g, '""')}"`);
     });
 
@@ -266,13 +277,10 @@ function exportTable(tableId) {
 // ============================================
 function getFileUrl(path) {
     if (!path) return '#';
-
     if (path.startsWith('http')) return path;
-
     path = path.replace(/^(\.\.\/)+/, '');
     path = path.replace(/^(\.\/)+/, '');
     path = path.replace(/^\/+/, '');
-
     return '/' + path;
 }
 
@@ -315,6 +323,8 @@ function showValidateModal(invoiceId) {
                 return;
             }
             const inv = data.data;
+            
+            // Build invoice detail HTML
             document.getElementById('invoiceDetail').innerHTML = `
                 <div class="detail-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                     <div><strong>Invoice:</strong> ${escapeHtml(inv.invoice_number)}</div>
@@ -325,7 +335,34 @@ function showValidateModal(invoiceId) {
                     <div><strong>File:</strong> <a href="${getFileUrl(inv.file_path)}" target="_blank">📎 View File</a></div>
                 </div>
             `;
+            
+            // Set validation notes
             document.getElementById('validationNotes').value = inv.validation_notes || '';
+            
+            // Show previous validation info if exists
+            const prevValidationDiv = document.getElementById('previousValidationInfo');
+            if (inv.status === 'Approved' || inv.status === 'Rejected') {
+                const prevTime = inv.validated_at ? formatDateTime(inv.validated_at) : '—';
+                const prevBy = inv.validated_by_name || 'Staff';
+                const prevNotes = inv.validation_notes || 'No notes';
+                
+                prevValidationDiv.innerHTML = `
+                    <div style="background: #f8f9fa; border-radius: 8px; padding: 12px 16px; border-left: 3px solid ${inv.status === 'Approved' ? '#28a745' : '#dc3545'};">
+                        <div style="font-size: 12px; color: #888; font-weight: 600; margin-bottom: 4px;">
+                            🕐 Previously ${inv.status} on ${prevTime}
+                        </div>
+                        <div style="font-size: 13px; color: #555;">
+                            <strong>By:</strong> ${escapeHtml(prevBy)}<br>
+                            <strong>Notes:</strong> "${escapeHtml(prevNotes)}"
+                        </div>
+                    </div>
+                `;
+                prevValidationDiv.style.display = 'block';
+            } else {
+                prevValidationDiv.innerHTML = '';
+                prevValidationDiv.style.display = 'none';
+            }
+            
             document.getElementById('validateModal').classList.add('active');
         })
         .catch(err => {
@@ -360,7 +397,9 @@ function updateStatus(id, status) {
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            showToast(`Invoice ${status.toLowerCase()}!`, 'success');
+            // Format timestamp untuk toast
+            const time = data.validated_at ? new Date(data.validated_at).toLocaleString('id-ID') : '';
+            showToast(`✅ Invoice ${data.status} by ${data.validated_by_name} at ${time}`, 'success');
             hideValidateModal();
             loadInvoices();
         } else {
@@ -432,9 +471,21 @@ function formatDate(dateStr) {
     return d.toLocaleDateString('id-ID');
 }
 
+function formatDateTime(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    return d.toLocaleString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
 function showError(msg) {
     const tbody = document.getElementById('invoiceTableBody');
     if (tbody) {
-        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color: red; padding: 20px;">⚠️ ${escapeHtml(msg)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color: red; padding: 20px;">⚠️ ${escapeHtml(msg)}</td></tr>`;
     }
 }
