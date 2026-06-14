@@ -12,51 +12,41 @@ let currentEditId = null; // ID comparison yang sedang diedit
 let currentUserRole = ''; // Role user saat ini
 let currentSortField = null;
 let currentSortDirection = 'asc';
-let allComparisonData = [];
-
-// ==================== PAGINATION VARIABLES ====================
-let currentHistoryPage = 1;
-let historyRowsPerPage = 10;
-let totalHistoryPages = 1;
-let filteredHistoryData = [];
 
 // Ambil role user dari session (set di PHP)
 document.addEventListener('DOMContentLoaded', function() {
+    // Cek role dari hidden input atau meta tag
     const roleMeta = document.querySelector('meta[name="user-role"]');
     if (roleMeta) {
         currentUserRole = roleMeta.content;
     }
-
+    
     loadComparisonHistory();
     initCreateViewAutocomplete();
-
-    const searchInput = document.getElementById('searchComparison');
-    if (searchInput) {
-        searchInput.addEventListener('input', function() {
-            const keyword = this.value.toLowerCase().trim();
-            currentHistoryPage = 1;
-
-            if (keyword === '') {
-                filteredHistoryData = [...historyData];
-            } else {
-                filteredHistoryData = historyData.filter(row => {
-                    return Object.values(row).some(val => 
-                        String(val).toLowerCase().includes(keyword)
-                    );
-                });
-            }
-            renderComparisonTableWithPagination(filteredHistoryData);
+    document.getElementById('searchComparison').addEventListener('input', function() {
+        const keyword = this.value.toLowerCase().trim();
+        if (keyword === '') {
+            renderComparisonTable(historyData);
+            return;
+        }
+        const filtered = historyData.filter(row => {
+            return Object.values(row).some(val => 
+                String(val).toLowerCase().includes(keyword)
+            );
         });
-    }
+        renderComparisonTable(filtered);
+    });
 });
 
 // ==================== FIELD VALIDATION CONFIG ====================
+// Field wajib untuk status FINAL (Save / Update)
 const REQUIRED_FIELDS = {
     header: ['pr_number', 'material_code', 'description', 'uom', 'qty_pr'],
     plan: ['plan_qty', 'plan_price_idr', 'plan_price_tiba_nu', 'plan_amount', 'plan_supplier'],
     awarded: ['awarded_po_date', 'awarded_deliv_date', 'awarded_po_number', 'awarded_supplier', 'awarded_amount']
 };
 
+// Label untuk field (untuk pesan error yang readable)
 const FIELD_LABELS = {
     pr_number: 'PR Number',
     material_code: 'Material Code',
@@ -77,17 +67,41 @@ const FIELD_LABELS = {
 
 // ==================== DRAFT/FINAL MODE MANAGEMENT ====================
 
+/**
+ * Set Last Order fields menjadi editable atau readonly
+ * @param {string} prefix - 'new' atau 'create'
+ * @param {boolean} isEditable - true = editable (draft), false = readonly (final)
+ */
+
 function setLastOrderEditable(prefix, isEditable) {
     const containerId = prefix === 'new' ? 'newComparisonView' : 'spreadsheetCreateView';
     const lastOrderInputs = document.querySelectorAll(`#${containerId} .input-last-order`);
-
+    
     lastOrderInputs.forEach(input => {
+        if (input.tagName === 'SELECT') {
+            // Handle select element
+            if (isEditable) {
+                input.disabled = false;
+                input.removeAttribute('disabled');
+                input.style.background = 'white';
+                input.style.cursor = 'default';
+            } else {
+                input.disabled = true;
+                input.setAttribute('disabled', 'disabled');
+                input.style.background = '#e8e8e8';
+                input.style.cursor = 'not-allowed';
+            }
+            return;
+        }
+        
         if (isEditable) {
+            // DRAFT MODE: Bisa edit
             input.readOnly = false;
             input.removeAttribute('readonly');
             input.removeAttribute('tabindex');
             input.classList.add('editable');
-
+            
+            // Tambahkan onchange handler untuk auto-calculate
             const field = input.getAttribute('data-field');
             if (field === 'last_price_foreign' || field === 'last_kurs_idr') {
                 input.setAttribute('onchange', `calculateLastPriceIDR(1, '${prefix}')`);
@@ -97,6 +111,7 @@ function setLastOrderEditable(prefix, isEditable) {
                 input.setAttribute('onchange', `manualOverrideLastPriceIDR(1, '${prefix}')`);
             }
         } else {
+            // FINAL MODE: Readonly
             input.readOnly = true;
             input.setAttribute('readonly', 'readonly');
             input.setAttribute('tabindex', '-1');
@@ -140,11 +155,11 @@ function showSpreadsheetCreateView() {
     setTimeout(() => { initIdrFormatters(); }, 100);
 }
 
-// ==================== EDIT MODE ====================
+// ==================== EDIT MODE - VIEW FROM HISTORY ====================
 
 function editComparison(id, source) {
     currentEditId = id;
-
+    
     fetch(`api/get_comparison_detail.php?id=${id}`)
         .then(res => res.json())
         .then(data => {
@@ -167,6 +182,7 @@ function openNewComparisonForEdit(data) {
     document.getElementById('spreadsheetCreateView').classList.remove('active');
     document.getElementById('newComparisonView').classList.add('active');
     currentMode = 'new';
+    
     populateNewComparisonForm(data);
     loadSupplierList();
     setTimeout(() => { initIdrFormatters(); }, 100);
@@ -178,6 +194,7 @@ function openCreateComparisonForEdit(data) {
     document.getElementById('newComparisonView').classList.remove('active');
     document.getElementById('spreadsheetCreateView').classList.add('active');
     currentMode = 'create';
+    
     populateCreateComparisonForm(data);
     loadSupplierList();
     setTimeout(() => { initIdrFormatters(); }, 100);
@@ -187,16 +204,18 @@ function populateNewComparisonForm(data) {
     const rowNum = 1;
     const prefix = 'new';
     const isDraft = data.status === 'draft';
-
+    
     setFieldValue(rowNum, 'pr_number', data.pr_number || '', prefix);
     setFieldValue(rowNum, 'material_code', data.material_code || '', prefix);
     setFieldValue(rowNum, 'description', data.material || data.description || '', prefix);
     setFieldValue(rowNum, 'uom', data.uom || 'KG', prefix);
     setFieldValue(rowNum, 'qty_pr', data.qty_pr || data.qty || 0, prefix);
-
+    
     setFieldValue(rowNum, 'last_qty', data.last_qty || 0, prefix);
     setFieldValue(rowNum, 'last_po_number', data.last_po_number || '', prefix);
     setFieldValue(rowNum, 'last_po_date', data.last_po_date || '', prefix);
+    const lastCurrencySelect = document.querySelector(`#newComparisonView [data-field="last_currency"]`);
+    if (lastCurrencySelect) lastCurrencySelect.value = data.last_currency || '';
     setFieldValue(rowNum, 'last_price_foreign', data.last_price_foreign || 0, prefix);
     setFieldValue(rowNum, 'last_kurs_date', data.last_kurs_date || '', prefix);
     setFieldValue(rowNum, 'last_kurs_idr', data.last_kurs_idr || 0, prefix);
@@ -204,8 +223,10 @@ function populateNewComparisonForm(data) {
     setFieldValue(rowNum, 'last_price_tiba_nu', data.last_price_tiba_nu || 0, prefix);
     setFieldValue(rowNum, 'last_amount', data.last_amount || 0, prefix);
     setFieldValue(rowNum, 'last_supplier', data.last_supplier || data.last_supplier_name || '', prefix);
-
+    
     setFieldValue(rowNum, 'plan_qty', data.plan_qty || 0, prefix);
+    const planCurrencySelect = document.querySelector(`#newComparisonView [data-field="plan_currency"]`);
+    if (planCurrencySelect) planCurrencySelect.value = data.plan_currency || '';
     setFieldValue(rowNum, 'plan_price_foreign', data.plan_price_foreign || 0, prefix);
     setFieldValue(rowNum, 'plan_kurs_date', data.plan_kurs_date || '', prefix);
     setFieldValue(rowNum, 'plan_kurs_idr', data.plan_kurs_idr || 0, prefix);
@@ -213,17 +234,17 @@ function populateNewComparisonForm(data) {
     setFieldValue(rowNum, 'plan_price_tiba_nu', data.plan_price_tiba_nu || 0, prefix);
     setFieldValue(rowNum, 'plan_amount', data.plan_amount || 0, prefix);
     setFieldValue(rowNum, 'plan_supplier', data.plan_supplier || data.plan_supplier_name || '', prefix);
-
+    
     setFieldValue(rowNum, 'gap_price', data.gap_price || 0, prefix);
     setFieldValue(rowNum, 'gap_percent', data.gap_percent || 0, prefix);
-
+    
     setFieldValue(rowNum, 'awarded_po_date', data.awarded_po_date || '', prefix);
     setFieldValue(rowNum, 'awarded_deliv_date', data.awarded_deliv_date || '', prefix);
     setFieldValue(rowNum, 'awarded_po_number', data.awarded_po_number || data.po_number || '', prefix);
     setFieldValue(rowNum, 'awarded_supplier', data.awarded_supplier || data.awarded_supplier_name || '', prefix);
     setFieldValue(rowNum, 'awarded_amount', data.awarded_amount || 0, prefix);
     setFieldValue(rowNum, 'awarded_keterangan', data.awarded_keterangan || '', prefix);
-
+    
     setLastOrderEditable(prefix, isDraft);
     updateSaveButtonForEdit(prefix, isDraft);
 }
@@ -232,16 +253,18 @@ function populateCreateComparisonForm(data) {
     const rowNum = 1;
     const prefix = 'create';
     const isDraft = data.status === 'draft';
-
+    
     setFieldValue(rowNum, 'pr_number', data.pr_number || '', prefix);
     setFieldValue(rowNum, 'material_code', data.material_code || '', prefix);
     setFieldValue(rowNum, 'description', data.material || data.description || '', prefix);
     setFieldValue(rowNum, 'uom', data.uom || 'KG', prefix);
     setFieldValue(rowNum, 'qty_pr', data.qty_pr || data.qty || 0, prefix);
-
+    
     setFieldValue(rowNum, 'last_qty', data.last_qty || 0, prefix);
     setFieldValue(rowNum, 'last_po_number', data.last_po_number || '', prefix);
     setFieldValue(rowNum, 'last_po_date', data.last_po_date || '', prefix);
+    const lastCurrencySelect = document.querySelector(`#spreadsheetCreateView [data-field="last_currency"]`);
+    if (lastCurrencySelect) lastCurrencySelect.value = data.last_currency || '';
     setFieldValue(rowNum, 'last_price_foreign', data.last_price_foreign || 0, prefix);
     setFieldValue(rowNum, 'last_kurs_date', data.last_kurs_date || '', prefix);
     setFieldValue(rowNum, 'last_kurs_idr', data.last_kurs_idr || 0, prefix);
@@ -249,8 +272,10 @@ function populateCreateComparisonForm(data) {
     setFieldValue(rowNum, 'last_price_tiba_nu', data.last_price_tiba_nu || 0, prefix);
     setFieldValue(rowNum, 'last_amount', data.last_amount || 0, prefix);
     setFieldValue(rowNum, 'last_supplier', data.last_supplier || data.last_supplier_name || '', prefix);
-
+    
     setFieldValue(rowNum, 'plan_qty', data.plan_qty || 0, prefix);
+    const planCurrencySelect = document.querySelector(`#spreadsheetCreateView [data-field="plan_currency"]`);
+    if (planCurrencySelect) planCurrencySelect.value = data.plan_currency || '';
     setFieldValue(rowNum, 'plan_price_foreign', data.plan_price_foreign || 0, prefix);
     setFieldValue(rowNum, 'plan_kurs_date', data.plan_kurs_date || '', prefix);
     setFieldValue(rowNum, 'plan_kurs_idr', data.plan_kurs_idr || 0, prefix);
@@ -258,17 +283,17 @@ function populateCreateComparisonForm(data) {
     setFieldValue(rowNum, 'plan_price_tiba_nu', data.plan_price_tiba_nu || 0, prefix);
     setFieldValue(rowNum, 'plan_amount', data.plan_amount || 0, prefix);
     setFieldValue(rowNum, 'plan_supplier', data.plan_supplier || data.plan_supplier_name || '', prefix);
-
+    
     setFieldValue(rowNum, 'gap_price', data.gap_price || 0, prefix);
     setFieldValue(rowNum, 'gap_percent', data.gap_percent || 0, prefix);
-
+    
     setFieldValue(rowNum, 'awarded_po_date', data.awarded_po_date || '', prefix);
     setFieldValue(rowNum, 'awarded_deliv_date', data.awarded_deliv_date || '', prefix);
     setFieldValue(rowNum, 'awarded_po_number', data.awarded_po_number || data.po_number || '', prefix);
     setFieldValue(rowNum, 'awarded_supplier', data.awarded_supplier || data.awarded_supplier_name || '', prefix);
     setFieldValue(rowNum, 'awarded_amount', data.awarded_amount || 0, prefix);
     setFieldValue(rowNum, 'awarded_keterangan', data.awarded_keterangan || '', prefix);
-
+    
     setLastOrderEditable(prefix, isDraft);
     updateSaveButtonForEdit(prefix, isDraft);
 }
@@ -277,7 +302,7 @@ function updateSaveButtonForEdit(prefix, isDraft = false) {
     const containerId = prefix === 'new' ? 'newComparisonView' : 'spreadsheetCreateView';
     const saveBtn = document.querySelector(`#${containerId} .btn-primary.btn-large`);
     const draftBtn = document.querySelector(`#${containerId} .btn-warning.btn-large`);
-
+    
     if (saveBtn) {
         saveBtn.textContent = 'Update';
         saveBtn.onclick = function() { updateComparison(prefix); };
@@ -288,19 +313,19 @@ function updateSaveButtonForEdit(prefix, isDraft = false) {
     }
 }
 
-// ==================== VALIDATION ====================
+// ==================== VALIDATION FUNCTIONS ====================
 
 function validateRequiredFields(prefix) {
     const missing = [];
     const containerId = prefix === 'new' ? 'newComparisonView' : 'spreadsheetCreateView';
-
+    
     REQUIRED_FIELDS.header.forEach(field => {
         const input = document.querySelector(`#${containerId} [data-field="${field}"]`);
         if (!input || !input.value.trim() || input.value.trim() === '') {
             missing.push(FIELD_LABELS[field] || field);
         }
     });
-
+    
     REQUIRED_FIELDS.plan.forEach(field => {
         const input = document.querySelector(`#${containerId} [data-field="${field}"]`);
         if (!input) {
@@ -317,7 +342,7 @@ function validateRequiredFields(prefix) {
             missing.push(FIELD_LABELS[field] || field);
         }
     });
-
+    
     REQUIRED_FIELDS.awarded.forEach(field => {
         const input = document.querySelector(`#${containerId} [data-field="${field}"]`);
         if (!input) {
@@ -340,18 +365,21 @@ function validateRequiredFields(prefix) {
             missing.push(FIELD_LABELS[field] || field);
         }
     });
-
-    return { valid: missing.length === 0, missing: missing };
+    
+    return {
+        valid: missing.length === 0,
+        missing: missing
+    };
 }
 
 function highlightInvalidFields(prefix, missingFields) {
     const containerId = prefix === 'new' ? 'newComparisonView' : 'spreadsheetCreateView';
-
+    
     document.querySelectorAll(`#${containerId} input`).forEach(input => {
         input.style.borderColor = '';
         input.style.backgroundColor = '';
     });
-
+    
     Object.keys(FIELD_LABELS).forEach(field => {
         if (missingFields.includes(FIELD_LABELS[field])) {
             const input = document.querySelector(`#${containerId} [data-field="${field}"]`);
@@ -377,16 +405,17 @@ function clearFieldHighlights(prefix) {
 
 function updateComparison(prefix) {
     if (!currentEditId) return;
-
+    
+    // FINAL: WAJIB semua required field terisi
     const validation = validateRequiredFields(prefix);
     if (!validation.valid) {
         highlightInvalidFields(prefix, validation.missing);
-        showToast('The following fields must be filled in for FINAL status: ' + validation.missing.join(', '), 'error');
-        return;
+        showToast('Field berikut wajib diisi untuk status FINAL: ' + validation.missing.join(', '), 'error');
+        return; // BLOCK, tidak bisa update final kalau ada yang kosong
     }
-
+    
     clearFieldHighlights(prefix);
-
+    
     const payload = collectFormData(prefix);
     payload.comparison_id = currentEditId;
     payload.status = 'final';
@@ -414,9 +443,9 @@ function updateComparison(prefix) {
 
 function updateComparisonDraft(prefix) {
     if (!currentEditId) return;
-
+    
     clearFieldHighlights(prefix);
-
+    
     const payload = collectFormData(prefix);
     payload.comparison_id = currentEditId;
     payload.status = 'draft';
@@ -529,26 +558,38 @@ function populateLastOrderFromHistorical(historyRow) {
 
     if (hasForeignPrice) {
         setFieldValue(rowNum, 'last_price_foreign', historyRow.plan_price_foreign || historyRow.price_foreign || 0, prefix);
+        const lastCurrencySelect = document.querySelector(`#spreadsheetCreateView [data-field="last_currency"]`);
+        if (lastCurrencySelect) {
+            lastCurrencySelect.value = historyRow.plan_currency || historyRow.currency || historyRow.last_currency || '';
+        }
         setFieldValue(rowNum, 'last_kurs_date', formatDateForInput(historyRow.plan_kurs_date || historyRow.kurs_date), prefix);
         setFieldValue(rowNum, 'last_kurs_idr', historyRow.plan_kurs_idr || historyRow.kurs_idr || 0, prefix);
     } else if (hasKurs && historyRow.price) {
         setFieldValue(rowNum, 'last_price_foreign', historyRow.price || 0, prefix);
+        const lastCurrencySelect = document.querySelector(`#spreadsheetCreateView [data-field="last_currency"]`);
+        if (lastCurrencySelect) {
+            lastCurrencySelect.value = historyRow.plan_currency || historyRow.currency || historyRow.last_currency || '';
+        }
         setFieldValue(rowNum, 'last_kurs_date', formatDateForInput(historyRow.plan_kurs_date || historyRow.kurs_date), prefix);
         setFieldValue(rowNum, 'last_kurs_idr', historyRow.plan_kurs_idr || historyRow.kurs_idr || 0, prefix);
     } else if (hasPriceIdr) {
         setFieldValue(rowNum, 'last_price_foreign', '', prefix);
+        const lastCurrencySelect = document.querySelector(`#spreadsheetCreateView [data-field="last_currency"]`);
+        if (lastCurrencySelect) lastCurrencySelect.value = '';
         setFieldValue(rowNum, 'last_kurs_date', '', prefix);
         setFieldValue(rowNum, 'last_kurs_idr', '', prefix);
         setFieldValue(rowNum, 'last_price_idr', historyRow.plan_price_idr || historyRow.price_idr || 0, prefix);
     } else {
         setFieldValue(rowNum, 'last_price_foreign', '', prefix);
+        const lastCurrencySelect = document.querySelector(`#spreadsheetCreateView [data-field="last_currency"]`);
+        if (lastCurrencySelect) lastCurrencySelect.value = '';
         setFieldValue(rowNum, 'last_kurs_date', '', prefix);
         setFieldValue(rowNum, 'last_kurs_idr', '', prefix);
         setFieldValue(rowNum, 'last_price_idr', historyRow.price || 0, prefix);
     }
 
     calculateLastPriceIDR(rowNum, prefix);
-
+    
     setFieldValue(rowNum, 'last_supplier', historyRow.plan_supplier || historyRow.supplier || '', prefix);
 
     setFieldValue(rowNum, 'plan_qty', '', prefix);
@@ -570,193 +611,18 @@ function populateLastOrderFromHistorical(historyRow) {
     setFieldValue(rowNum, 'awarded_keterangan', '', prefix);
 }
 
-// ==================== PAGINATION FUNCTIONS ====================
-
-/**
- * Render comparison table dengan pagination
- */
-function renderComparisonTableWithPagination(data, page = 1, perPage = 10) {
-    const tbody = document.getElementById('comparisonTableBody');
-
-    if (!data || data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:20px;color:#888;">No comparison data found</td></tr>';
-        renderPaginationControls(0, 1, 10);
-        return;
-    }
-
-    currentHistoryPage = page;
-    historyRowsPerPage = perPage;
-
-    const totalItems = data.length;
-    totalHistoryPages = Math.ceil(totalItems / perPage);
-
-    if (page < 1) page = 1;
-    if (page > totalHistoryPages) page = totalHistoryPages;
-    currentHistoryPage = page;
-
-    const startIndex = (page - 1) * perPage;
-    const endIndex = Math.min(startIndex + perPage, totalItems);
-    const pageData = data.slice(startIndex, endIndex);
-
-    tbody.innerHTML = pageData.map(row => {
-        const deleteBtn = `<button class="btn btn-small" style="background:#dc3545;color:white;margin-left:5px;" onclick="deleteComparison(${row.comparison_id})">Delete</button>`;
-
-        return `
-        <tr>
-            <td class="checkbox-col">
-                <input type="checkbox" value="${row.comparison_id}" 
-                    ${selectedHistoryIds.has(row.comparison_id.toString()) ? 'checked' : ''}
-                    onchange="toggleHistorySelection(${row.comparison_id})">
-            </td>
-            <td>#${row.comparison_id}</td>
-            <td>${row.pr_number || '-'}</td>
-            <td>${row.po_number || '-'}</td>
-            <td>${formatDate(row.po_date)}</td>
-            <td>${formatDate(row.table_created_date)}</td>
-            <td>${row.material || row.material_group || row.material_code || '-'}</td>
-            <td>${row.plan_qty != null ? formatIdrNumber(row.plan_qty) : formatIdrNumber(row.qty || 0)}</td>
-            <td>${row.price ? 'Rp ' + formatIdrNumber(row.price) : '-'}</td>
-            <td>${row.amount ? 'Rp ' + formatIdrNumber(row.amount) : '-'}</td>
-            <td>${row.plan_supplier || '-'}</td>
-            <td>${formatDate(row.delivery_date)}</td>
-            <td>${getStatusBadge(row.status)}</td>
-            <td>
-                <button class="btn btn-small btn-primary" onclick="editComparison(${row.comparison_id}, '${row.created_from || 'create'}')">View</button>
-                ${deleteBtn}
-            </td>
-        </tr>
-    `}).join('');
-
-    renderPaginationControls(totalItems, page, perPage);
-}
-
-/**
- * Render pagination controls
- */
-function renderPaginationControls(totalItems, currentPage, perPage) {
-    let paginationContainer = document.getElementById('paginationContainer');
-
-    if (!paginationContainer) {
-        paginationContainer = document.createElement('div');
-        paginationContainer.id = 'paginationContainer';
-        paginationContainer.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#f8f9fa;border-top:1px solid #e0e0e0;border-radius:0 0 8px 8px;margin-top:-1px;';
-
-        const tableWrapper = document.getElementById('comparisonTable');
-        if (tableWrapper && tableWrapper.parentNode) {
-            tableWrapper.parentNode.insertBefore(paginationContainer, tableWrapper.nextSibling);
-        }
-    }
-
-    if (totalItems === 0) {
-        paginationContainer.innerHTML = '<span style="color:#888;font-size:13px;">No records</span>';
-        return;
-    }
-
-    const totalPages = Math.ceil(totalItems / perPage);
-    const startItem = (currentPage - 1) * perPage + 1;
-    const endItem = Math.min(currentPage * perPage, totalItems);
-
-    let pageNumbers = '';
-    const maxVisiblePages = 5;
-    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-
-    if (endPage - startPage + 1 < maxVisiblePages) {
-        startPage = Math.max(1, endPage - maxVisiblePages + 1);
-    }
-
-    if (startPage > 1) {
-        pageNumbers += `<button onclick="goToPage(1)" style="${getPageButtonStyle(false)}">1</button>`;
-        if (startPage > 2) {
-            pageNumbers += `<span style="padding:0 6px;color:#888;">...</span>`;
-        }
-    }
-
-    for (let i = startPage; i <= endPage; i++) {
-        const isActive = i === currentPage;
-        pageNumbers += `<button onclick="goToPage(${i})" style="${getPageButtonStyle(isActive)}">${i}</button>`;
-    }
-
-    if (endPage < totalPages) {
-        if (endPage < totalPages - 1) {
-            pageNumbers += `<span style="padding:0 6px;color:#888;">...</span>`;
-        }
-        pageNumbers += `<button onclick="goToPage(${totalPages})" style="${getPageButtonStyle(false)}">${totalPages}</button>`;
-    }
-
-    paginationContainer.innerHTML = `
-        <div style="display:flex;align-items:center;gap:8px;">
-            <span style="color:#666;font-size:13px;">Showing <strong>${startItem}-${endItem}</strong> of <strong>${totalItems}</strong> records</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:6px;">
-            <button onclick="goToPage(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''} style="${getNavButtonStyle(currentPage <= 1)}">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-            </button>
-            ${pageNumbers}
-            <button onclick="goToPage(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''} style="${getNavButtonStyle(currentPage >= totalPages)}">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-            </button>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-            <span style="color:#666;font-size:13px;">Rows per page:</span>
-            <select onchange="changeRowsPerPage(this.value)" style="padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;cursor:pointer;outline:none;">
-                <option value="10" ${perPage == 10 ? 'selected' : ''}>10</option>
-                <option value="25" ${perPage == 25 ? 'selected' : ''}>25</option>
-                <option value="50" ${perPage == 50 ? 'selected' : ''}>50</option>
-                <option value="100" ${perPage == 100 ? 'selected' : ''}>100</option>
-            </select>
-        </div>
-    `;
-}
-
-function getPageButtonStyle(isActive) {
-    if (isActive) {
-        return 'padding:6px 12px;border:1px solid #4a90e2;background:#4a90e2;color:white;border-radius:4px;font-size:13px;cursor:pointer;font-weight:600;min-width:36px;';
-    }
-    return 'padding:6px 12px;border:1px solid #ddd;background:white;color:#555;border-radius:4px;font-size:13px;cursor:pointer;min-width:36px;transition:all 0.2s;';
-}
-
-function getNavButtonStyle(disabled) {
-    if (disabled) {
-        return 'padding:6px 10px;border:1px solid #e0e0e0;background:#f5f5f5;color:#bbb;border-radius:4px;cursor:not-allowed;display:flex;align-items:center;';
-    }
-    return 'padding:6px 10px;border:1px solid #ddd;background:white;color:#555;border-radius:4px;cursor:pointer;display:flex;align-items:center;transition:all 0.2s;';
-}
-
-function goToPage(page) {
-    if (page < 1 || page > totalHistoryPages) return;
-    currentHistoryPage = page;
-    renderComparisonTableWithPagination(filteredHistoryData, page, historyRowsPerPage);
-}
-
-function changeRowsPerPage(newPerPage) {
-    historyRowsPerPage = parseInt(newPerPage);
-    currentHistoryPage = 1;
-    renderComparisonTableWithPagination(filteredHistoryData, 1, historyRowsPerPage);
-}
-
-// ==================== MODIFIED FUNCTIONS ====================
-
 function loadComparisonHistory() {
     fetch('api/get_history.php')
         .then(res => res.json())
         .then(data => {
             if (data.success) {
                 historyData = data.data;
-                filteredHistoryData = [...historyData];
-                currentHistoryPage = 1;
-                renderComparisonTableWithPagination(filteredHistoryData);
+                renderComparisonTable(historyData);
             } else {
                 console.error('Error loading history:', data.error);
             }
         })
         .catch(err => console.error('Error:', err));
-}
-
-function renderComparisonTable(data) {
-    filteredHistoryData = data || [];
-    currentHistoryPage = 1;
-    renderComparisonTableWithPagination(filteredHistoryData);
 }
 
 function backToHistory() {
@@ -770,6 +636,7 @@ function backToHistory() {
     document.getElementById('selectedInfo').classList.remove('active');
     document.getElementById('btnUseSelected').disabled = true;
     document.querySelectorAll('.historical-row').forEach(r => r.classList.remove('selected'));
+    
     resetSaveButtons();
 }
 
@@ -784,7 +651,7 @@ function resetSaveButtons() {
         newDraftBtn.textContent = 'Save as Draft';
         newDraftBtn.onclick = function() { saveAsDraft('new'); };
     }
-
+    
     const createSaveBtn = document.querySelector('#spreadsheetCreateView .btn-primary.btn-large');
     const createDraftBtn = document.querySelector('#spreadsheetCreateView .btn-warning.btn-large');
     if (createSaveBtn) {
@@ -874,7 +741,7 @@ function manualOverrideLastPriceIDR(rowNum, prefix) {
         if (priceIdrInput) priceIdrInput.value = formatIdrNumber(idr);
         alert('Price IDR auto-calculated from Foreign Price x Kurs. Clear Foreign Price to input manually.');
     }
-
+    
     calculateLastPriceIDR(rowNum, prefix);
 }
 
@@ -921,7 +788,7 @@ function manualOverridePlanPriceIDR(rowNum, prefix) {
         if (priceIdrInput) priceIdrInput.value = formatIdrNumber(idr);
         alert('Price IDR auto-calculated from Foreign Price x Kurs. Clear foreign price to input IDR manually.');
     }
-
+    
     calculatePlanPriceIDR(rowNum, prefix);
 }
 
@@ -932,16 +799,16 @@ function calculatePlanAmount(rowNum, prefix) {
 function calculateGap(rowNum, prefix) {
     const lastPrice = getFieldValue(rowNum, 'last_price_idr', prefix);
     const planPrice = getFieldValue(rowNum, 'plan_price_idr', prefix);
-
+    
     if (lastPrice === 0 && planPrice === 0) {
         setFieldValue(rowNum, 'gap_price', '', prefix);
         setFieldValue(rowNum, 'gap_percent', '', prefix);
         return;
     }
-
+    
     const gapPrice = planPrice - lastPrice;
     const gapPercent = lastPrice > 0 ? ((gapPrice / lastPrice) * 100) : 0;
-
+    
     setFieldValue(rowNum, 'gap_price', gapPrice, prefix);
     setFieldValue(rowNum, 'gap_percent', gapPercent.toFixed(2), prefix);
 }
@@ -1004,15 +871,16 @@ function saveAsDraft(prefix) {
 }
 
 function saveComparison(prefix) {
+    // FINAL: WAJIB semua required field terisi
     const validation = validateRequiredFields(prefix);
     if (!validation.valid) {
         highlightInvalidFields(prefix, validation.missing);
         showToast('Field berikut wajib diisi untuk status FINAL: ' + validation.missing.join(', '), 'error');
-        return;
+        return; // BLOCK, tidak bisa save final kalau ada yang kosong
     }
-
+    
     clearFieldHighlights(prefix);
-
+    
     const payload = collectFormData(prefix);
     payload.status = 'final';
     payload.created_from = prefix;
@@ -1047,9 +915,9 @@ function saveComparisonData(status, prefix) {
             return;
         }
     }
-
+    
     clearFieldHighlights(prefix);
-
+    
     const payload = collectFormData(prefix);
     payload.status = status;
     payload.created_from = prefix;
@@ -1078,6 +946,13 @@ function saveComparisonData(status, prefix) {
 
 function collectFormData(prefix) {
     const containerId = prefix === 'new' ? 'newComparisonView' : 'spreadsheetCreateView';
+    
+    // Helper untuk ambil nilai select
+    const getSelectValue = (field) => {
+        const select = document.querySelector(`#${containerId} [data-field="${field}"]`);
+        return select ? select.value : '';
+    };
+    
     return {
         pr_number: document.querySelector(`#${containerId} [data-field="pr_number"]`).value,
         material_code: document.querySelector(`#${containerId} [data-field="material_code"]`).value,
@@ -1089,6 +964,7 @@ function collectFormData(prefix) {
         last_po_number: document.querySelector(`#${containerId} [data-field="last_po_number"]`).value,
         last_po_date: getFieldValueSafe(1, 'last_po_date', prefix),
         last_price_foreign: getFieldValue(1, 'last_price_foreign', prefix),
+        last_currency: getSelectValue('last_currency'),  // TAMBAH INI
         last_kurs_date: getFieldValueSafe(1, 'last_kurs_date', prefix),
         last_kurs_idr: getFieldValue(1, 'last_kurs_idr', prefix),
         last_price_idr: getFieldValue(1, 'last_price_idr', prefix),
@@ -1098,6 +974,7 @@ function collectFormData(prefix) {
 
         plan_qty: getFieldValue(1, 'plan_qty', prefix),
         plan_price_foreign: getFieldValue(1, 'plan_price_foreign', prefix),
+        plan_currency: getSelectValue('plan_currency'),  // TAMBAH INI
         plan_kurs_date: getFieldValueSafe(1, 'plan_kurs_date', prefix),
         plan_kurs_idr: getFieldValue(1, 'plan_kurs_idr', prefix),
         plan_price_idr: getFieldValue(1, 'plan_price_idr', prefix),
@@ -1123,35 +1000,31 @@ function initCreateViewAutocomplete() {
     const materialInput = document.getElementById('createMaterialSearch');
     const supplierInput = document.getElementById('createSupplierSearch');
 
-    if (materialInput) {
-        materialInput.addEventListener('input', debounce(function() {
-            if (this.value.length < 2) return;
-            fetch(`api/autocomplete.php?type=material&q=${encodeURIComponent(this.value)}`)
-                .then(res => res.json())
-                .then(data => {
-                    const list = document.getElementById('createMaterialSuggestions');
-                    list.innerHTML = data.map(item => `
-                        <div onclick="selectCreateMaterial('${item.value}')">${item.label}</div>
-                    `).join('');
-                    list.style.display = 'block';
-                });
-        }, 300));
-    }
+    materialInput.addEventListener('input', debounce(function() {
+        if (this.value.length < 2) return;
+        fetch(`api/autocomplete.php?type=material&q=${encodeURIComponent(this.value)}`)
+            .then(res => res.json())
+            .then(data => {
+                const list = document.getElementById('createMaterialSuggestions');
+                list.innerHTML = data.map(item => `
+                    <div onclick="selectCreateMaterial('${item.value}')">${item.label}</div>
+                `).join('');
+                list.style.display = 'block';
+            });
+    }, 300));
 
-    if (supplierInput) {
-        supplierInput.addEventListener('input', debounce(function() {
-            if (this.value.length < 2) return;
-            fetch(`api/autocomplete.php?type=supplier&q=${encodeURIComponent(this.value)}`)
-                .then(res => res.json())
-                .then(data => {
-                    const list = document.getElementById('createSupplierSuggestions');
-                    list.innerHTML = data.map(item => `
-                        <div onclick="selectCreateSupplier('${item.value}')">${item.label}</div>
-                    `).join('');
-                    list.style.display = 'block';
-                });
-        }, 300));
-    }
+    supplierInput.addEventListener('input', debounce(function() {
+        if (this.value.length < 2) return;
+        fetch(`api/autocomplete.php?type=supplier&q=${encodeURIComponent(this.value)}`)
+            .then(res => res.json())
+            .then(data => {
+                const list = document.getElementById('createSupplierSuggestions');
+                list.innerHTML = data.map(item => `
+                    <div onclick="selectCreateSupplier('${item.value}')">${item.label}</div>
+                `).join('');
+                list.style.display = 'block';
+            });
+    }, 300));
 }
 
 function selectCreateMaterial(value) {
@@ -1174,6 +1047,23 @@ function debounce(func, wait) {
 
 // ==================== HISTORY TABLE ====================
 
+function loadComparisonHistory() {
+    fetch('api/get_history.php')
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                historyData = data.data;
+                renderComparisonTable(historyData);
+            } else {
+                console.error('Error loading history:', data.error);
+            }
+        })
+        .catch(err => console.error('Error:', err));
+}
+
+/**
+ * Render status badge untuk Draft/Final
+ */
 function getStatusBadge(status) {
     if (status === 'draft') {
         return `<span style="background:#ffc107;color:#333;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">DRAFT</span>`;
@@ -1183,8 +1073,55 @@ function getStatusBadge(status) {
     return `<span style="background:#6c757d;color:white;padding:2px 8px;border-radius:4px;font-size:11px;">UNKNOWN</span>`;
 }
 
+/**
+ * Cek apakah user bisa delete data ini
+ * - Draft: bisa delete (owner atau admin)
+ * - Final: hanya admin/manager bisa delete
+ */
 function canDelete(row) {
+    // Draft bisa di-delete
     return true;
+}
+
+function renderComparisonTable(data) {
+    const tbody = document.getElementById('comparisonTableBody');
+    if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:20px;color:#888;">No comparison data found</td></tr>';
+        return;
+    }
+    
+    // HAPUS BAGIAN INI (sudah ada di HTML):
+    // const thead = document.querySelector('#comparisonTable thead tr');
+    // if (thead && !thead.querySelector('th.status-col')) { ... }
+    
+    tbody.innerHTML = data.map(row => {
+        const deleteBtn = `<button class="btn btn-small" style="background:#dc3545;color:white;margin-left:5px;" onclick="deleteComparison(${row.comparison_id})">Delete</button>`;
+        
+        return `
+        <tr>
+            <td class="checkbox-col">
+                <input type="checkbox" value="${row.comparison_id}" 
+                    ${selectedHistoryIds.has(row.comparison_id.toString()) ? 'checked' : ''}
+                    onchange="toggleHistorySelection(${row.comparison_id})">
+            </td>
+            <td>#${row.comparison_id}</td>
+            <td>${row.pr_number || '-'}</td>
+            <td>${row.po_number || '-'}</td>
+            <td>${formatDate(row.po_date)}</td>
+            <td>${formatDate(row.table_created_date)}</td>
+            <td>${row.material || row.material_group || row.material_code || '-'}</td>
+            <td>${row.plan_qty != null ? formatIdrNumber(row.plan_qty) : formatIdrNumber(row.qty || 0)}</td>
+            <td>${row.price ? 'Rp ' + formatIdrNumber(row.price) : '-'}</td>
+            <td>${row.amount ? 'Rp ' + formatIdrNumber(row.amount) : '-'}</td>
+            <td>${row.plan_supplier || '-'}</td>
+            <td>${formatDate(row.delivery_date)}</td>
+            <td>${getStatusBadge(row.status)}</td>
+            <td>
+                <button class="btn btn-small btn-primary" onclick="editComparison(${row.comparison_id}, '${row.created_from || 'create'}')">View</button>
+                ${deleteBtn}
+            </td>
+        </tr>
+    `}).join('');
 }
 
 function toggleHistorySelection(id) {
@@ -1232,6 +1169,7 @@ function generateSameAsLastOrder() {
 
     const lastQty = getFieldValue(rowNum, 'last_qty', prefix);
     const lastPriceForeign = getFieldValue(rowNum, 'last_price_foreign', prefix);
+    const lastCurrency = document.querySelector(`#spreadsheetCreateView [data-field="last_currency"]`)?.value || '';  // TAMBAH
     const lastKursDate = getFieldValueSafe(rowNum, 'last_kurs_date', prefix);
     const lastKursIdr = getFieldValue(rowNum, 'last_kurs_idr', prefix);
     const lastPriceIdr = getFieldValue(rowNum, 'last_price_idr', prefix);
@@ -1246,6 +1184,9 @@ function generateSameAsLastOrder() {
 
     setFieldValue(rowNum, 'plan_qty', lastQty || '', prefix);
     setFieldValue(rowNum, 'plan_price_foreign', lastPriceForeign || '', prefix);
+    const planCurrencySelect = document.querySelector(`#spreadsheetCreateView [data-field="plan_currency"]`);
+    if (planCurrencySelect) planCurrencySelect.value = lastCurrency;
+    
     setFieldValue(rowNum, 'plan_kurs_date', lastKursDate || '', prefix);
     setFieldValue(rowNum, 'plan_kurs_idr', lastKursIdr || '', prefix);
     setFieldValue(rowNum, 'plan_price_idr', lastPriceIdr || '', prefix);
@@ -1269,7 +1210,7 @@ function generateSameAsLastOrder() {
 // ==================== CLEAR TABLE ====================
 
 function clearComparisonTable(viewId) {
-    if (!confirm('Are you sure you want to clear all the data in the table?')) {
+    if (!confirm('Apakah Anda yakin ingin mengosongkan semua data di tabel?')) {
         return;
     }
 
@@ -1405,7 +1346,9 @@ document.addEventListener("input", function(e) {
     }
 });
 
-// ==================== EXPORT CSV ====================
+// ============================================
+// PERBAIKAN PATH EXPORT CSV
+// ============================================
 
 function exportSelectedToExcel(filename = "comparison_export.csv") {
     const table = document.getElementById("comparisonTable");
@@ -1419,6 +1362,7 @@ function exportSelectedToExcel(filename = "comparison_export.csv") {
         let rowData = [];
 
         cols.forEach(col => {
+
             if (col.querySelector("input[type='checkbox']")) return;
 
             let text = "";
@@ -1450,7 +1394,7 @@ function exportSelectedToExcel(filename = "comparison_export.csv") {
 }
 
 function deleteComparison(id) {
-    if (!confirm('Are you sure you want to delete this data?')) {
+    if (!confirm('Apakah Anda yakin ingin menghapus data ini?')) {
         return;
     }
 
@@ -1462,10 +1406,10 @@ function deleteComparison(id) {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            showToast('The data has been successfully deleted');
+            showToast('Data berhasil dihapus');
             loadComparisonHistory();
         } else {
-            showToast('Error: ' + (data.error || 'Failed to delete'), 'error');
+            showToast('Error: ' + (data.error || 'Gagal menghapus'), 'error');
         }
     })
     .catch(err => {
@@ -1474,45 +1418,58 @@ function deleteComparison(id) {
     });
 }
 
-// ==================== SORT & FILTER ====================
+// ==================== SORT & FILTER (NEW) ====================
 
+/**
+ * Toggle sort direction untuk field tertentu
+ * @param {string} field - nama field untuk sort
+ */
 function sortTableBy(field) {
     if (currentSortField === field) {
+        // Toggle direction
         currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
     } else {
         currentSortField = field;
         currentSortDirection = 'asc';
     }
-
-    const sorted = [...filteredHistoryData].sort((a, b) => {
+    
+    const sorted = [...historyData].sort((a, b) => {
         let valA = a[field];
         let valB = b[field];
-
+        
+        // Handle null/undefined
         if (valA === null || valA === undefined) valA = '';
         if (valB === null || valB === undefined) valB = '';
-
+        
+        // Convert to string for comparison
         valA = String(valA).toLowerCase();
         valB = String(valB).toLowerCase();
-
+        
+        // Number comparison for numeric fields
         const numA = parseFloat(valA);
         const numB = parseFloat(valB);
         if (!isNaN(numA) && !isNaN(numB) && valA !== '' && valB !== '') {
             return currentSortDirection === 'asc' ? numA - numB : numB - numA;
         }
-
+        
+        // String comparison
         if (valA < valB) return currentSortDirection === 'asc' ? -1 : 1;
         if (valA > valB) return currentSortDirection === 'asc' ? 1 : -1;
         return 0;
     });
-
-    currentHistoryPage = 1;
-    renderComparisonTableWithPagination(sorted);
+    
+    renderComparisonTable(sorted);
     updateSortIndicators(field, currentSortDirection);
 }
 
+/**
+ * Update visual indicator (arrow) di header table
+ */
 function updateSortIndicators(activeField, direction) {
+    // Remove all existing sort indicators
     document.querySelectorAll('.sort-indicator').forEach(el => el.remove());
-
+    
+    // Find the header cell for this field
     const fieldMap = {
         'comparison_id': 2,
         'pr_number': 3,
@@ -1527,10 +1484,10 @@ function updateSortIndicators(activeField, direction) {
         'delivery_date': 12,
         'status': 13
     };
-
+    
     const colIndex = fieldMap[activeField];
     if (!colIndex) return;
-
+    
     const th = document.querySelector(`#comparisonTable thead tr th:nth-child(${colIndex})`);
     if (th) {
         const arrow = direction === 'asc' ? ' ▲' : ' ▼';
@@ -1543,25 +1500,32 @@ function updateSortIndicators(activeField, direction) {
     }
 }
 
+/**
+ * Filter table by multiple criteria
+ */
 function filterTable() {
     const materialFilter = document.getElementById('filterMaterial')?.value.toLowerCase().trim() || '';
     const supplierFilter = document.getElementById('filterSupplier')?.value.toLowerCase().trim() || '';
     const statusFilter = document.getElementById('filterStatus')?.value || '';
     const dateFrom = document.getElementById('filterDateFrom')?.value || '';
     const dateTo = document.getElementById('filterDateTo')?.value || '';
-
-    filteredHistoryData = historyData.filter(row => {
+    
+    let filtered = historyData.filter(row => {
+        // Material filter
         const materialMatch = !materialFilter || 
             (row.material && String(row.material).toLowerCase().includes(materialFilter)) ||
             (row.material_code && String(row.material_code).toLowerCase().includes(materialFilter)) ||
             (row.material_group && String(row.material_group).toLowerCase().includes(materialFilter));
-
+        
+        // Supplier filter
         const supplierMatch = !supplierFilter || 
             (row.plan_supplier && String(row.plan_supplier).toLowerCase().includes(supplierFilter)) ||
             (row.supplier && String(row.supplier).toLowerCase().includes(supplierFilter));
-
+        
+        // Status filter
         const statusMatch = !statusFilter || row.status === statusFilter;
-
+        
+        // Date range filter
         let dateMatch = true;
         if (dateFrom || dateTo) {
             const rowDate = row.table_created_date || row.po_date;
@@ -1575,12 +1539,13 @@ function filterTable() {
                 }
             }
         }
-
+        
         return materialMatch && supplierMatch && statusMatch && dateMatch;
     });
-
+    
+    // Re-apply current sort if exists
     if (currentSortField) {
-        filteredHistoryData = [...filteredHistoryData].sort((a, b) => {
+        filtered = [...filtered].sort((a, b) => {
             let valA = a[currentSortField];
             let valB = b[currentSortField];
             if (valA === null || valA === undefined) valA = '';
@@ -1597,11 +1562,19 @@ function filterTable() {
             return 0;
         });
     }
-
-    currentHistoryPage = 1;
-    renderComparisonTableWithPagination(filteredHistoryData);
+    
+    renderComparisonTable(filtered);
+    
+    // Update count display
+    const countEl = document.getElementById('filterResultCount');
+    if (countEl) {
+        countEl.textContent = `Showing ${filtered.length} of ${historyData.length} records`;
+    }
 }
 
+/**
+ * Reset all filters
+ */
 function resetFilters() {
     const filterInputs = document.querySelectorAll('.filter-input-advanced');
     filterInputs.forEach(input => {
@@ -1611,11 +1584,16 @@ function resetFilters() {
             input.value = '';
         }
     });
-    filteredHistoryData = [...historyData];
-    currentHistoryPage = 1;
-    renderComparisonTableWithPagination(filteredHistoryData);
+    renderComparisonTable(historyData);
+    const countEl = document.getElementById('filterResultCount');
+    if (countEl) {
+        countEl.textContent = `Showing ${historyData.length} records`;
+    }
 }
 
+/**
+ * Toggle filter panel visibility
+ */
 function toggleFilterPanel() {
     const panel = document.getElementById('advancedFilterPanel');
     if (panel) {
@@ -1623,23 +1601,31 @@ function toggleFilterPanel() {
     }
 }
 
-// ==================== AUTO STATUS PROMOTION ====================
+// ============================================
+// AUTO STATUS PROMOTION - DRAFT TO FINAL
+// ============================================
 
+/**
+ * Cek apakah semua required fields sudah terisi
+ */
 function checkAllFieldsFilled(prefix) {
     const validation = validateRequiredFields(prefix);
     return validation.valid;
 }
 
+/**
+ * Progress bar kelengkapan field
+ */
 function addProgressBar(prefix) {
     const containerId = prefix === 'new' ? 'newComparisonView' : 'spreadsheetCreateView';
     const container = document.getElementById(containerId);
-
+    
     let progressContainer = document.getElementById(`progressContainer-${prefix}`);
     if (!progressContainer) {
         progressContainer = document.createElement('div');
         progressContainer.id = `progressContainer-${prefix}`;
         progressContainer.style.cssText = 'background:#f8f9fa;border:1px solid #e0e0e0;border-radius:6px;padding:10px 15px;margin-bottom:15px;';
-
+        
         progressContainer.innerHTML = `
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                 <span style="font-size:12px;font-weight:600;color:#555;">Completion Status</span>
@@ -1650,7 +1636,7 @@ function addProgressBar(prefix) {
             </div>
             <div id="progressDetail-${prefix}" style="font-size:11px;color:#888;margin-top:4px;"></div>
         `;
-
+        
         const pageHeader = container.querySelector('.page-header');
         if (pageHeader && pageHeader.nextSibling) {
             container.insertBefore(progressContainer, pageHeader.nextSibling);
@@ -1664,7 +1650,7 @@ function updateProgressBar(prefix) {
     let filledCount = 0;
     let emptyFields = [];
     const containerId = prefix === 'new' ? 'newComparisonView' : 'spreadsheetCreateView';
-
+    
     allFields.forEach(field => {
         const input = document.querySelector(`#${containerId} [data-field="${field}"]`);
         if (input) {
@@ -1673,12 +1659,12 @@ function updateProgressBar(prefix) {
             else emptyFields.push(FIELD_LABELS[field] || field);
         }
     });
-
+    
     const percentage = Math.round((filledCount / allFields.length) * 100);
     const progressBar = document.getElementById(`progressBar-${prefix}`);
     const progressText = document.getElementById(`progressText-${prefix}`);
     const progressDetail = document.getElementById(`progressDetail-${prefix}`);
-
+    
     if (progressBar) {
         progressBar.style.width = percentage + '%';
         if (percentage === 100) {
@@ -1691,12 +1677,13 @@ function updateProgressBar(prefix) {
             progressText.textContent = percentage + '%';
         }
     }
-
+    
     if (progressDetail) {
         progressDetail.textContent = emptyFields.length > 0 ? 'Missing: ' + emptyFields.join(', ') : 'All fields filled! Will auto-promote to FINAL.';
     }
 }
 
+// Override fungsi existing untuk tracking
 const originalShowCreateNewComparison = showCreateNewComparison;
 showCreateNewComparison = function() {
     originalShowCreateNewComparison();
@@ -1709,6 +1696,7 @@ showSpreadsheetCreateView = function() {
     setTimeout(() => addProgressBar('create'), 200);
 };
 
+// Real-time monitoring
 function initAutoStatusCheck(prefix) {
     const containerId = prefix === 'new' ? 'newComparisonView' : 'spreadsheetCreateView';
     const inputs = document.querySelectorAll(`#${containerId} input[data-field]`);
@@ -1718,17 +1706,20 @@ function initAutoStatusCheck(prefix) {
     });
 }
 
+// Override save functions untuk auto-promote
 const originalSaveComparisonData = saveComparisonData;
 saveComparisonData = function(status, prefix) {
     const allFilled = checkAllFieldsFilled(prefix);
-
+    
+    // Auto-promote: jika draft tapi semua field terisi, jadikan final
     if (status === 'draft' && allFilled) {
         if (confirm('All required fields are filled! Promote to FINAL status?')) {
             status = 'final';
             showToast('Auto-promoting to FINAL...', 'success');
         }
     }
-
+    
+    // Panggil fungsi original dengan status yang mungkin sudah berubah
     const payload = collectFormData(prefix);
     payload.status = status;
     payload.created_from = prefix;
