@@ -1,49 +1,41 @@
 // File: assets/js/tracking.js
 let currentTab = 'overview';
 
-// ─── PAGINATION (Overview Tab) ────────────────────────────────────────────────
+// ─── PAGINATION ───────────────────────────────────────────────────────────────
 let trackingAllData     = [];
 let trackingPage        = 1;
 const TRACKING_PER_PAGE = 10;
+let pendingAllData      = [];
+let pendingPage         = 1;
+const PENDING_PER_PAGE  = 10;
+let completedAllData    = [];
+let completedPage       = 1;
+const COMPLETED_PER_PAGE= 10;
+let syncAllData         = [];
+let syncPage            = 1;
+const SYNC_PER_PAGE     = 10;
 
-// ─── PAGINATION (Pending Tab) ─────────────────────────────────────────────────
-let pendingAllData     = [];
-let pendingPage        = 1;
-const PENDING_PER_PAGE = 10;
-
-// ─── PAGINATION (Completed Tab) ───────────────────────────────────────────────
-let completedAllData     = [];
-let completedPage        = 1;
-const COMPLETED_PER_PAGE = 10;
-
-// ─── PAGINATION (Sync History Tab) ────────────────────────────────────────────
-let syncAllData     = [];
-let syncPage        = 1;
-const SYNC_PER_PAGE = 10;
+// ─── POINT 2: PO Number multi-select state ────────────────────────────────────
+let allPONumbers       = [];   // full list from data
+let selectedPONumbers  = new Set(); // currently selected
 
 // ─── TAB SWITCHING ────────────────────────────────────────────────────────────
-
 function switchTab(tab, el) {
     currentTab = tab;
-
     document.querySelectorAll('.tracking-tab').forEach(btn => btn.classList.remove('active'));
     if (el) el.classList.add('active');
-
     document.querySelectorAll('.tab-panel').forEach(panel => panel.style.display = 'none');
     const panel = document.getElementById(`tab-${tab}`);
     if (panel) panel.style.display = 'block';
-
     if (tab === 'pending')   loadPendingData();
     if (tab === 'completed') loadCompletedData();
     if (tab === 'history')   loadSyncHistory();
 }
 
-// ─── OVERVIEW ────────────────────────────────────────────────────────────────
-
+// ─── OVERVIEW ─────────────────────────────────────────────────────────────────
 function loadTrackingData() {
     const search = document.getElementById('searchTracking')?.value || '';
     const status = document.getElementById('filterTrackingStatus')?.value || 'all';
-
     const params = new URLSearchParams({ search, status });
 
     fetch(`api/get_tracking_data.php?${params}`)
@@ -53,6 +45,7 @@ function loadTrackingData() {
                 updateStats(data.stats);
                 trackingAllData = data.data;
                 trackingPage    = 1;
+                populateColumnFilters(data.data);
                 renderTrackingTable();
             } else {
                 showToast('Failed to load tracking data.', 'error');
@@ -65,15 +58,176 @@ function loadTrackingData() {
 }
 
 function updateStats(stats) {
-    document.getElementById('totalItems').textContent  = stats.total    || 0;
-    document.getElementById('awaitingGR').textContent  = stats.open     || 0;
-    document.getElementById('partialGR').textContent   = stats.partial  || 0;
+    document.getElementById('totalItems').textContent    = stats.total    || 0;
+    document.getElementById('awaitingGR').textContent    = stats.open     || 0;
+    document.getElementById('partialGR').textContent     = stats.partial  || 0;
     document.getElementById('fullyReceived').textContent = stats.completed || 0;
+}
+
+// ─── POINT 2: Column filters ──────────────────────────────────────────────────
+function populateColumnFilters(data) {
+    // PO Numbers for checkbox list
+    allPONumbers = [...new Set(data.map(r => r.po_number))].sort();
+    buildPOCheckboxList(allPONumbers);
+
+    // Vendor dropdown
+    const vendors = [...new Set(data.map(r => r.supplier_name || 'Unknown'))].sort();
+    const vendorSel = document.getElementById('colFilterVendor');
+    if (vendorSel) {
+        const cur = vendorSel.value;
+        vendorSel.innerHTML = '<option value="">All</option>' +
+            vendors.map(v => `<option value="${v}"${v === cur ? ' selected' : ''}>${v}</option>`).join('');
+    }
+}
+
+// Build checkbox items in the PO dropdown
+function buildPOCheckboxList(poList) {
+    const container = document.getElementById('poCheckboxList');
+    if (!container) return;
+    if (poList.length === 0) {
+        container.innerHTML = '<div style="padding:10px 12px;color:#aaa;font-size:12px;">No results</div>';
+        return;
+    }
+    container.innerHTML = poList.map(po => `
+        <label class="po-checkbox-item">
+            <input type="checkbox" value="${po}"
+                   ${selectedPONumbers.has(po) ? 'checked' : ''}
+                   onchange="onPOCheckboxChange(this)">
+            ${po}
+        </label>
+    `).join('');
+}
+
+function filterPOCheckboxList() {
+    const q = (document.getElementById('poSearchInput')?.value || '').toLowerCase().trim();
+    const filtered = q ? allPONumbers.filter(p => p.toLowerCase().includes(q)) : allPONumbers;
+    buildPOCheckboxList(filtered);
+}
+
+function onPOCheckboxChange(cb) {
+    if (cb.checked) {
+        selectedPONumbers.add(cb.value);
+    } else {
+        selectedPONumbers.delete(cb.value);
+    }
+}
+
+function togglePOFilterDropdown() {
+    const trigger  = document.getElementById('poFilterTrigger');
+    let dropdown   = document.getElementById('poFilterDropdown');
+    const isOpen   = dropdown && dropdown.classList.contains('open');
+
+    if (isOpen) {
+        dropdown.classList.remove('open');
+        trigger.classList.remove('active');
+        return;
+    }
+
+    // Portal: move to body once so table overflow never clips it
+    if (dropdown.parentElement !== document.body) {
+        document.body.appendChild(dropdown);
+    }
+
+    // Build content first so we can measure real height
+    const inp = document.getElementById('poSearchInput');
+    if (inp) inp.value = '';
+    buildPOCheckboxList(allPONumbers);
+
+    // Make visible but off-screen to measure
+    dropdown.style.visibility = 'hidden';
+    dropdown.style.top        = '-9999px';
+    dropdown.style.left       = '-9999px';
+    dropdown.classList.add('open');
+
+    // Now measure real rendered height
+    const dropW     = 250;
+    const dropH     = dropdown.offsetHeight;
+    const rect      = trigger.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom - 8;
+    const spaceAbove = rect.top - 8;
+
+    // Horizontal position
+    let leftPos = rect.left;
+    if (leftPos + dropW > window.innerWidth - 8) {
+        leftPos = window.innerWidth - dropW - 8;
+    }
+    if (leftPos < 8) leftPos = 8;
+
+    dropdown.style.width = dropW + 'px';
+    dropdown.style.left  = leftPos + 'px';
+
+    if (spaceBelow >= dropH || spaceBelow >= spaceAbove) {
+        // Open downward
+        dropdown.style.top    = (rect.bottom + 4) + 'px';
+        dropdown.style.bottom = 'auto';
+    } else {
+        // Open upward
+        dropdown.style.top    = Math.max(8, rect.top - dropH - 4) + 'px';
+        dropdown.style.bottom = 'auto';
+    }
+
+    // Reveal
+    dropdown.style.visibility = '';
+    trigger.classList.add('active');
+}
+
+function applyPOFilter() {
+    // Close dropdown
+    document.getElementById('poFilterDropdown')?.classList.remove('open');
+    document.getElementById('poFilterTrigger')?.classList.remove('active');
+    // Update trigger label
+    updatePOTriggerLabel();
+    trackingPage = 1;
+    renderTrackingTable();
+}
+
+function clearPOFilter() {
+    selectedPONumbers.clear();
+    // Uncheck all visible
+    document.querySelectorAll('#poCheckboxList input[type="checkbox"]')
+        .forEach(cb => cb.checked = false);
+    updatePOTriggerLabel();
+    trackingPage = 1;
+    renderTrackingTable();
+    document.getElementById('poFilterDropdown')?.classList.remove('open');
+    document.getElementById('poFilterTrigger')?.classList.remove('active');
+}
+
+function updatePOTriggerLabel() {
+    const label = document.getElementById('poTriggerText');
+    if (!label) return;
+    if (selectedPONumbers.size === 0) {
+        label.textContent = 'All';
+    } else if (selectedPONumbers.size === 1) {
+        label.textContent = [...selectedPONumbers][0];
+    } else {
+        label.textContent = `${selectedPONumbers.size} selected`;
+    }
+}
+
+// Build filtered data combining all column filters
+function getColumnFilteredData() {
+    const vendorPick = document.getElementById('colFilterVendor')?.value || '';
+    const statusPick = document.getElementById('colFilterStatus')?.value || '';
+
+    return trackingAllData.filter(row => {
+        const matchPO     = selectedPONumbers.size === 0 || selectedPONumbers.has(row.po_number);
+        const matchVendor = !vendorPick || (row.supplier_name || 'Unknown') === vendorPick;
+        const matchStatus = !statusPick || row.status === statusPick;
+        return matchPO && matchVendor && matchStatus;
+    });
+}
+
+// Debounce search
+let _trackSearchTimer = null;
+function debounceTrackingSearch() {
+    clearTimeout(_trackSearchTimer);
+    _trackSearchTimer = setTimeout(() => { trackingPage = 1; loadTrackingData(); }, 500);
 }
 
 function renderTrackingTable() {
     const tbody    = document.getElementById('trackingTableBody');
-    const data     = trackingAllData;
+    const data     = getColumnFilteredData();
     const total    = data.length;
     const totalPages = Math.max(1, Math.ceil(total / TRACKING_PER_PAGE));
     trackingPage   = Math.min(trackingPage, totalPages);
@@ -104,7 +258,6 @@ function renderTrackingTable() {
                             ${formatDate(date)} — Qty: ${formatNumber(qty)}
                         </div>`;
             });
-
             const MAX_VISIBLE = 2;
             if (grList.length <= MAX_VISIBLE) {
                 grHTML = grList.join('');
@@ -123,7 +276,8 @@ function renderTrackingTable() {
             }
         }
 
-        const balanceColor = parseFloat(row.balance_qty) > 0 ? 'color:#dc3545; font-weight:bold;' : 'color:#28a745;';
+        const balanceColor = parseFloat(row.balance_qty) > 0
+            ? 'color:#dc3545; font-weight:bold;' : 'color:#28a745;';
 
         return `
             <tr onclick="showPODetail('${row.po_number}', '${row.po_item}')" style="cursor:pointer;">
@@ -150,21 +304,18 @@ function toggleGR(idx, e) {
     const toggle = document.getElementById(`gr-toggle-${idx}`);
     if (!more) return;
     const isHidden = more.style.display === 'none';
-    more.style.display  = isHidden ? 'block' : 'none';
-    toggle.textContent  = isHidden ? 'Show less' : `+${more.querySelectorAll('.gr-card').length} more GR`;
+    more.style.display = isHidden ? 'block' : 'none';
+    toggle.textContent = isHidden ? 'Show less' : `+${more.querySelectorAll('.gr-card').length} more GR`;
 }
 
 function renderTrackingPagination(total, totalPages) {
     const existing = document.getElementById('trackingPagination');
     if (existing) existing.remove();
-
     const container = document.querySelector('#tab-overview .data-table-container');
     if (!container) return;
-
     const start = (trackingPage - 1) * TRACKING_PER_PAGE + 1;
     const end   = Math.min(trackingPage * TRACKING_PER_PAGE, total);
-
-    const pag = document.createElement('div');
+    const pag   = document.createElement('div');
     pag.id = 'trackingPagination';
     pag.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-top:1px solid #eee; font-size:13px; color:#555;';
     pag.innerHTML = `
@@ -183,37 +334,33 @@ function renderTrackingPagination(total, totalPages) {
 }
 
 function changeTrackingPage(dir) {
-    const totalPages = Math.ceil(trackingAllData.length / TRACKING_PER_PAGE);
+    const totalPages = Math.ceil(getColumnFilteredData().length / TRACKING_PER_PAGE);
     trackingPage = Math.min(totalPages, Math.max(1, trackingPage + dir));
     renderTrackingTable();
 }
 
-// ─── PENDING TAB ─────────────────────────────────────────────────────────────
-
+// ─── PENDING TAB ──────────────────────────────────────────────────────────────
 function loadPendingData() {
     fetch('api/get_tracking_data.php?status=Open')
         .then(r => r.json())
         .then(data => {
             pendingAllData = data.data || [];
-            pendingPage = 1;
+            pendingPage    = 1;
             renderPendingTable();
         })
-        .catch(err => {
-            showToast('Failed to load pending data.', 'error');
-            console.error(err);
-        });
+        .catch(err => { showToast('Failed to load pending data.', 'error'); console.error(err); });
 }
 
 function renderPendingTable() {
-    const tbody   = document.getElementById('pendingTableBody');
-    const search  = document.getElementById('searchPending')?.value.toLowerCase() || '';
+    const tbody     = document.getElementById('pendingTableBody');
+    const search    = document.getElementById('searchPending')?.value.toLowerCase() || '';
     const dayFilter = document.getElementById('filterPendingDays')?.value || 'all';
 
     let filtered = pendingAllData.filter(row => {
         const matchSearch = !search ||
             row.po_number.toLowerCase().includes(search) ||
-            (row.description || '').toLowerCase().includes(search) ||
-            (row.supplier_name || '').toLowerCase().includes(search);
+            (row.description  || '').toLowerCase().includes(search) ||
+            (row.supplier_name|| '').toLowerCase().includes(search);
         const matchDays = dayFilter === 'all' ||
             (dayFilter === 'overdue' && row.days_pending > 30) ||
             (dayFilter === 'normal'  && row.days_pending <= 30);
@@ -227,7 +374,7 @@ function renderPendingTable() {
     const pageData   = filtered.slice(start, start + PENDING_PER_PAGE);
 
     if (pageData.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:40px; color:#888;">No pending PO found</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:#888;">No pending PO found</td></tr>`;
         renderTabPagination('pending', total, totalPages);
         return;
     }
@@ -243,10 +390,9 @@ function renderPendingTable() {
             <td>${formatDate(row.po_date)}</td>
             <td>
                 <span style="
-                    background: ${row.days_pending > 30 ? '#f8d7da' : '#fff3cd'};
-                    color: ${row.days_pending > 30 ? '#721c24' : '#856404'};
-                    padding: 4px 10px; border-radius: 12px;
-                    font-size: 12px; font-weight: 500;">
+                    background:${row.days_pending > 30 ? '#f8d7da' : '#fff3cd'};
+                    color:${row.days_pending > 30 ? '#721c24' : '#856404'};
+                    padding:4px 10px; border-radius:12px; font-size:12px; font-weight:500;">
                     ${row.days_pending} days
                 </span>
             </td>
@@ -256,20 +402,16 @@ function renderPendingTable() {
     renderTabPagination('pending', total, totalPages);
 }
 
-// ─── COMPLETED TAB ───────────────────────────────────────────────────────────
-
+// ─── COMPLETED TAB ────────────────────────────────────────────────────────────
 function loadCompletedData() {
     fetch('api/get_tracking_data.php?status=Completed')
         .then(r => r.json())
         .then(data => {
             completedAllData = data.data || [];
-            completedPage = 1;
+            completedPage    = 1;
             renderCompletedTable();
         })
-        .catch(err => {
-            showToast('Failed to load completed data.', 'error');
-            console.error(err);
-        });
+        .catch(err => { showToast('Failed to load completed data.', 'error'); console.error(err); });
 }
 
 function renderCompletedTable() {
@@ -279,12 +421,12 @@ function renderCompletedTable() {
 
     let filtered = completedAllData.filter(row => {
         const daysToComplete = row.last_gr_date
-            ? Math.ceil((new Date(row.last_gr_date) - new Date(row.po_date)) / (1000 * 60 * 60 * 24))
+            ? Math.ceil((new Date(row.last_gr_date) - new Date(row.po_date)) / (1000*60*60*24))
             : 0;
         const matchSearch = !search ||
             row.po_number.toLowerCase().includes(search) ||
-            (row.description || '').toLowerCase().includes(search) ||
-            (row.supplier_name || '').toLowerCase().includes(search);
+            (row.description  || '').toLowerCase().includes(search) ||
+            (row.supplier_name|| '').toLowerCase().includes(search);
         const matchSpeed = speedFilter === 'all' ||
             (speedFilter === 'fast' && daysToComplete < 30) ||
             (speedFilter === 'slow' && daysToComplete >= 30);
@@ -298,14 +440,14 @@ function renderCompletedTable() {
     const pageData   = filtered.slice(start, start + COMPLETED_PER_PAGE);
 
     if (pageData.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:40px; color:#888;">No completed PO found</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:#888;">No completed PO found</td></tr>`;
         renderTabPagination('completed', total, totalPages);
         return;
     }
 
     tbody.innerHTML = pageData.map(row => {
         const daysToComplete = row.last_gr_date
-            ? Math.ceil((new Date(row.last_gr_date) - new Date(row.po_date)) / (1000 * 60 * 60 * 24))
+            ? Math.ceil((new Date(row.last_gr_date) - new Date(row.po_date)) / (1000*60*60*24))
             : '-';
         return `
             <tr>
@@ -331,30 +473,26 @@ function renderCompletedTable() {
 }
 
 // ─── SYNC HISTORY TAB ────────────────────────────────────────────────────────
-
 function loadSyncHistory() {
     fetch('api/get_sync_history.php')
         .then(r => r.json())
         .then(data => {
             syncAllData = (data.success && data.data) ? data.data : [];
-            syncPage = 1;
+            syncPage    = 1;
             renderSyncHistoryTable();
         })
-        .catch(err => {
-            showToast('Failed to load sync history.', 'error');
-            console.error(err);
-        });
+        .catch(err => { showToast('Failed to load sync history.', 'error'); console.error(err); });
 }
 
 function renderSyncHistoryTable() {
     const tbody  = document.getElementById('syncHistoryBody');
     const search = document.getElementById('searchHistory')?.value.toLowerCase() || '';
 
-    let filtered = syncAllData.filter(log => {
-        return !search ||
-            (log.filename || log.details || '').toLowerCase().includes(search) ||
-            (log.user_name || '').toLowerCase().includes(search);
-    });
+    let filtered = syncAllData.filter(log =>
+        !search ||
+        (log.filename || log.details || '').toLowerCase().includes(search) ||
+        (log.user_name || '').toLowerCase().includes(search)
+    );
 
     const total      = filtered.length;
     const totalPages = Math.max(1, Math.ceil(total / SYNC_PER_PAGE));
@@ -363,7 +501,7 @@ function renderSyncHistoryTable() {
     const pageData   = filtered.slice(start, start + SYNC_PER_PAGE);
 
     if (pageData.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:40px; color:#888;">No sync history found</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:#888;">No sync history found</td></tr>`;
         renderTabPagination('history', total, totalPages);
         return;
     }
@@ -384,25 +522,20 @@ function renderSyncHistoryTable() {
 }
 
 // ─── PO DETAIL MODAL ─────────────────────────────────────────────────────────
-
 function showPODetail(poNumber, poItem) {
     fetch(`api/get_po_timeline.php?po_number=${encodeURIComponent(poNumber)}&po_item=${encodeURIComponent(poItem)}`)
         .then(r => r.json())
         .then(data => {
-            if (!data.success) {
-                showToast('Failed to load PO details.', 'error');
-                return;
-            }
-
+            if (!data.success) { showToast('Failed to load PO details.', 'error'); return; }
             document.getElementById('detailPONumber').textContent = `${poNumber} / Item ${poItem}`;
 
             const po = data.po;
             const totalReceived = data.gr_history.reduce((sum, gr) => sum + parseFloat(gr.gr_quantity), 0);
             const balance = parseFloat(po.ordered_quantity) - totalReceived;
-            const pct = po.ordered_quantity > 0 ? Math.min(100, Math.round((totalReceived / po.ordered_quantity) * 100)) : 0;
+            const pct     = po.ordered_quantity > 0
+                ? Math.min(100, Math.round((totalReceived / po.ordered_quantity) * 100)) : 0;
 
             let timelineHTML = `
-                <!-- PO Summary -->
                 <div style="background:#f8f9fa; border-radius:10px; padding:16px; margin-bottom:20px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
                     <div><div style="font-size:12px;color:#888;">Supplier</div><div style="font-weight:600;">${po.supplier_name || 'N/A'}</div></div>
                     <div><div style="font-size:12px;color:#888;">PO Date</div><div style="font-weight:600;">${formatDate(po.po_date)}</div></div>
@@ -411,63 +544,49 @@ function showPODetail(poNumber, poItem) {
                     <div><div style="font-size:12px;color:#888;">Received Qty</div><div style="font-weight:600; color:#28a745;">${formatNumber(totalReceived)}</div></div>
                     <div><div style="font-size:12px;color:#888;">Balance</div><div style="font-weight:600; color:${balance > 0 ? '#dc3545' : '#28a745'};">${formatNumber(balance)}</div></div>
                 </div>
-
-                <!-- Progress Bar -->
                 <div style="margin-bottom:24px;">
                     <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px;">
-                        <span>Fulfillment Progress</span>
-                        <strong>${pct}%</strong>
+                        <span>Fulfillment Progress</span><strong>${pct}%</strong>
                     </div>
                     <div style="background:#e0e0e0; border-radius:6px; height:10px; overflow:hidden;">
-                        <div style="height:100%; width:${pct}%; background:${pct >= 100 ? '#28a745' : pct > 0 ? '#4285f4' : '#ffc107'}; border-radius:6px; transition:width 0.5s;"></div>
+                        <div style="height:100%; width:${pct}%; background:${pct>=100?'#28a745':pct>0?'#4285f4':'#ffc107'}; border-radius:6px; transition:width 0.5s;"></div>
                     </div>
                 </div>
-
-                <!-- Timeline -->
                 <h4 style="margin-bottom:16px; font-size:14px; color:#555; text-transform:uppercase; letter-spacing:0.5px;">GR Timeline</h4>
                 <div class="timeline">
                     <div class="timeline-item">
                         <strong>📋 PO Created</strong><br>
                         <span style="color:#666; font-size:13px;">Date: ${formatDate(po.po_date)} &nbsp;|&nbsp; Qty Ordered: ${formatNumber(po.ordered_quantity)}</span>
-                    </div>
-            `;
+                    </div>`;
 
             if (data.gr_history.length > 0) {
-                data.gr_history.forEach((gr, index) => {
+                data.gr_history.forEach((gr, i) => {
                     timelineHTML += `
                         <div class="timeline-item">
-                            <strong>📦 GR #${index + 1}: ${gr.gr_number}</strong><br>
+                            <strong>📦 GR #${i+1}: ${gr.gr_number}</strong><br>
                             <span style="color:#666; font-size:13px;">Date: ${formatDate(gr.gr_date)} &nbsp;|&nbsp; Qty Received: ${formatNumber(gr.gr_quantity)}</span>
-                        </div>
-                    `;
+                        </div>`;
                 });
             } else {
                 timelineHTML += `
                     <div class="timeline-item pending">
                         <strong>⏳ No Goods Receipt Yet</strong><br>
                         <span style="color:#888; font-size:13px;">Waiting for delivery — ${po.days_pending || 0} days since PO created</span>
-                    </div>
-                `;
+                    </div>`;
             }
-
             if (po.status === 'Completed') {
                 timelineHTML += `
                     <div class="timeline-item">
                         <strong>✅ Fully Received</strong><br>
                         <span style="color:#28a745; font-size:13px;">All ordered quantity has been received.</span>
-                    </div>
-                `;
+                    </div>`;
             }
-
-            timelineHTML += `</div>`; // close timeline
+            timelineHTML += `</div>`;
 
             document.getElementById('poTimeline').innerHTML = timelineHTML;
             document.getElementById('poDetailModal').classList.add('active');
         })
-        .catch(err => {
-            showToast('Failed to load PO details.', 'error');
-            console.error(err);
-        });
+        .catch(err => { showToast('Failed to load PO details.', 'error'); console.error(err); });
 }
 
 function hideDetailModal() {
@@ -475,70 +594,60 @@ function hideDetailModal() {
 }
 
 // ─── UPLOAD MODAL ─────────────────────────────────────────────────────────────
-
 let uploadedFile = null;
 
-function showUploadModal() {
-    document.getElementById('uploadModal').classList.add('active');
-}
+function showUploadModal() { document.getElementById('uploadModal').classList.add('active'); }
 
 function hideUploadModal() {
     document.getElementById('uploadModal').classList.remove('active');
     clearUpload();
     document.getElementById('uploadProgress').style.display = 'none';
-    document.getElementById('progressFill').style.width = '0%';
-    document.getElementById('progressText').textContent = '0%';
+    document.getElementById('progressFill').style.width    = '0%';
+    document.getElementById('progressText').textContent    = '0%';
 }
 
 function initUploadHandlers() {
-    const dropZone = document.getElementById('dropZone');
+    const dropZone  = document.getElementById('dropZone');
     const fileInput = document.getElementById('zmm039File');
     if (!dropZone || !fileInput) return;
 
     dropZone.addEventListener('click', () => fileInput.click());
-
-    dropZone.addEventListener('dragover', (e) => {
+    dropZone.addEventListener('dragover', e => {
         e.preventDefault();
         dropZone.style.borderColor = '#4285f4';
-        dropZone.style.background = '#e3f2fd';
+        dropZone.style.background  = '#e3f2fd';
     });
-
     dropZone.addEventListener('dragleave', () => {
         dropZone.style.borderColor = '#ddd';
-        dropZone.style.background = '#f8f9fa';
+        dropZone.style.background  = '#f8f9fa';
     });
-
-    dropZone.addEventListener('drop', (e) => {
+    dropZone.addEventListener('drop', e => {
         e.preventDefault();
         dropZone.style.borderColor = '#ddd';
-        dropZone.style.background = '#f8f9fa';
+        dropZone.style.background  = '#f8f9fa';
         if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
     });
-
-    fileInput.addEventListener('change', (e) => {
+    fileInput.addEventListener('change', e => {
         if (e.target.files[0]) handleFile(e.target.files[0]);
     });
 }
 
 function handleFile(file) {
-    const allowed = ['xlsx', 'xls'];
     const ext = file.name.split('.').pop().toLowerCase();
-    if (!allowed.includes(ext)) {
+    if (!['xlsx','xls'].includes(ext)) {
         showToast('Invalid file type. Please upload .xlsx or .xls file.', 'error');
         return;
     }
-
     uploadedFile = file;
     document.getElementById('fileList').innerHTML = `
         <div class="file-item">
             <div class="file-icon">📎</div>
             <div class="file-info">
                 <div class="file-name">${file.name}</div>
-                <div class="file-size">${(file.size / 1024).toFixed(1)} KB</div>
+                <div class="file-size">${(file.size/1024).toFixed(1)} KB</div>
             </div>
             <span class="file-remove" onclick="clearUpload()">✕</span>
-        </div>
-    `;
+        </div>`;
     document.getElementById('uploadBtn').disabled = false;
 }
 
@@ -546,48 +655,31 @@ function clearUpload() {
     uploadedFile = null;
     document.getElementById('fileList').innerHTML = '';
     document.getElementById('uploadBtn').disabled = true;
-    const fileInput = document.getElementById('zmm039File');
-    if (fileInput) fileInput.value = '';
+    const fi = document.getElementById('zmm039File');
+    if (fi) fi.value = '';
 }
 
 function uploadZMM039() {
-    if (!uploadedFile) {
-        showToast('Please select a file first.', 'error');
-        return;
-    }
-
-    const formData = new FormData();
+    if (!uploadedFile) { showToast('Please select a file first.', 'error'); return; }
+    const formData    = new FormData();
     formData.append('file', uploadedFile);
-
     const progressBar = document.getElementById('uploadProgress');
-    const progressFill = document.getElementById('progressFill');
-    const progressText = document.getElementById('progressText');
-    const uploadBtn = document.getElementById('uploadBtn');
-
+    const progressFill= document.getElementById('progressFill');
+    const progressText= document.getElementById('progressText');
+    const uploadBtn   = document.getElementById('uploadBtn');
     progressBar.style.display = 'block';
-    uploadBtn.disabled = true;
+    uploadBtn.disabled    = true;
     uploadBtn.textContent = 'Processing...';
-
-    // Animate progress bar while waiting
     let progress = 0;
     const interval = setInterval(() => {
-        if (progress < 85) {
-            progress += 5;
-            progressFill.style.width = progress + '%';
-            progressText.textContent = progress + '%';
-        }
+        if (progress < 85) { progress += 5; progressFill.style.width = progress+'%'; progressText.textContent = progress+'%'; }
     }, 150);
-
-    fetch('../dashboard/api/upload_zmm039.php', {
-        method: 'POST',
-        body: formData
-    })
+    fetch('../dashboard/api/upload_zmm039.php', { method:'POST', body:formData })
         .then(r => r.json())
         .then(data => {
             clearInterval(interval);
             progressFill.style.width = '100%';
             progressText.textContent = '100%';
-
             setTimeout(() => {
                 if (data.success) {
                     showToast(`✅ Success! ${data.processed} records processed.`, 'success');
@@ -598,7 +690,7 @@ function uploadZMM039() {
                     if (currentTab === 'history')   loadSyncHistory();
                 } else {
                     showToast('❌ Error: ' + data.error, 'error');
-                    uploadBtn.disabled = false;
+                    uploadBtn.disabled    = false;
                     uploadBtn.textContent = 'Upload & Process';
                     progressBar.style.display = 'none';
                 }
@@ -607,31 +699,145 @@ function uploadZMM039() {
         .catch(err => {
             clearInterval(interval);
             showToast('Connection error during upload.', 'error');
-            uploadBtn.disabled = false;
+            uploadBtn.disabled    = false;
             uploadBtn.textContent = 'Upload & Process';
             progressBar.style.display = 'none';
             console.error(err);
         });
 }
 
-// ─── EXPORT ───────────────────────────────────────────────────────────────────
+// ─── POINT 4: SPLIT BUTTON EXPORT ────────────────────────────────────────────
+function toggleExportMenu(e) {
+    e.stopPropagation();
+    document.getElementById('exportMenu')?.classList.toggle('open');
+}
 
-function exportTracking() {
+// Main entry — called by both main button and menu items
+function exportTracking(format) {
+    // Close menu if open
+    document.getElementById('exportMenu')?.classList.remove('open');
+    if (format === 'pdf') {
+        exportTrackingPDF();
+    } else {
+        exportTrackingCSV();
+    }
+}
+
+function exportTrackingPDF() {
+    const date = new Date().toISOString().split('T')[0];
+    let title = '', rows = [], tableHTML = '';
+
+    if (currentTab === 'overview') {
+        title = `PO Tracking Report — ${date}`;
+        rows  = getColumnFilteredData();
+        tableHTML = `
+        <table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:11px;">
+            <thead style="background:#f4c542;">
+                <tr><th>PO NUMBER</th><th>ITEM</th><th>DESCRIPTION</th><th>VENDOR</th>
+                    <th>ORDERED QTY</th><th>RECEIVED QTY</th><th>BALANCE</th><th>STATUS</th><th>LAST GR DATE</th></tr>
+            </thead>
+            <tbody>
+                ${rows.map(r => `<tr>
+                    <td>${r.po_number}</td><td>${r.po_item}</td>
+                    <td>${r.description||'-'}</td><td>${r.supplier_name||'-'}</td>
+                    <td style="text-align:right">${parseFloat(r.ordered_quantity||0).toLocaleString('id-ID')}</td>
+                    <td style="text-align:right">${parseFloat(r.received_qty||0).toLocaleString('id-ID')}</td>
+                    <td style="text-align:right">${parseFloat(r.balance_qty||0).toLocaleString('id-ID')}</td>
+                    <td style="text-align:center"><b>${r.status}</b></td>
+                    <td>${r.last_gr_date||'-'}</td>
+                </tr>`).join('')}
+            </tbody>
+        </table>`;
+    } else if (currentTab === 'pending') {
+        title = `Pending PO Report — ${date}`;
+        rows  = pendingAllData;
+        tableHTML = `
+        <table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:11px;">
+            <thead style="background:#f4c542;">
+                <tr><th>PO NUMBER</th><th>DESCRIPTION</th><th>VENDOR</th><th>ORDERED QTY</th><th>PO DATE</th><th>DAYS PENDING</th></tr>
+            </thead>
+            <tbody>
+                ${rows.map(r => `<tr>
+                    <td>${r.po_number}</td><td>${r.description||'-'}</td><td>${r.supplier_name||'-'}</td>
+                    <td style="text-align:right">${parseFloat(r.ordered_quantity||0).toLocaleString('id-ID')}</td>
+                    <td>${r.po_date||'-'}</td>
+                    <td style="text-align:center;color:${parseInt(r.days_pending)>30?'#dc3545':'#e67e00'}">${r.days_pending} days</td>
+                </tr>`).join('')}
+            </tbody>
+        </table>`;
+    } else if (currentTab === 'completed') {
+        title = `Completed PO Report — ${date}`;
+        rows  = completedAllData;
+        tableHTML = `
+        <table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:11px;">
+            <thead style="background:#f4c542;">
+                <tr><th>PO NUMBER</th><th>DESCRIPTION</th><th>VENDOR</th><th>TOTAL QTY</th><th>GR COUNT</th><th>LAST GR DATE</th><th>DAYS TO COMPLETE</th></tr>
+            </thead>
+            <tbody>
+                ${rows.map(r => {
+                    const d = r.last_gr_date ? Math.ceil((new Date(r.last_gr_date)-new Date(r.po_date))/86400000) : '-';
+                    return `<tr>
+                        <td>${r.po_number}</td><td>${r.description||'-'}</td><td>${r.supplier_name||'-'}</td>
+                        <td style="text-align:right">${parseFloat(r.ordered_quantity||0).toLocaleString('id-ID')}</td>
+                        <td style="text-align:center">${r.gr_count}</td>
+                        <td>${r.last_gr_date||'-'}</td>
+                        <td style="text-align:center">${d} days</td>
+                    </tr>`;
+                }).join('')}
+            </tbody>
+        </table>`;
+    } else {
+        title = `Sync History — ${date}`;
+        rows  = syncAllData;
+        tableHTML = `
+        <table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:11px;">
+            <thead style="background:#f4c542;">
+                <tr><th>TIMESTAMP</th><th>UPLOADED BY</th><th>FILENAME</th><th>PO PROCESSED</th><th>GR INSERTED</th><th>GR SKIPPED</th></tr>
+            </thead>
+            <tbody>
+                ${rows.map(r => `<tr>
+                    <td>${r.created_at||'-'}</td><td>${r.user_name||'-'}</td><td>${r.filename||'-'}</td>
+                    <td style="text-align:center">${r.records_processed||0}</td>
+                    <td style="text-align:center">${r.gr_inserted||0}</td>
+                    <td style="text-align:center">${r.gr_skipped||0}</td>
+                </tr>`).join('')}
+            </tbody>
+        </table>`;
+    }
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <!DOCTYPE html><html>
+        <head>
+            <meta charset="UTF-8">
+            <title>${title}</title>
+            <style>
+                body { font-family: Arial, sans-serif; padding: 24px; color: #222; }
+                h2   { font-size: 16px; margin-bottom: 4px; }
+                .meta{ font-size: 12px; color: #666; margin-bottom: 16px; }
+                table th { background: #f4c542 !important; }
+                @media print { @page { size: A4 landscape; margin: 15mm; } body { padding: 0; } }
+            </style>
+        </head>
+        <body>
+            <h2>E-Purch — ${title}</h2>
+            <div class="meta">Generated: ${new Date().toLocaleString('id-ID')} | Total Records: ${rows.length}</div>
+            ${tableHTML}
+            <script>window.onload = function(){ window.print(); }<\/script>
+        </body></html>
+    `);
+    printWindow.document.close();
+}
+
+function exportTrackingCSV() {
     const date = new Date().toISOString().split('T')[0];
 
-    // Overview tab: export from data array (avoids GR Details multiline DOM issue)
     if (currentTab === 'overview') {
-        if (!trackingAllData || trackingAllData.length === 0) {
-            showToast('No data to export.', 'error');
-            return;
-        }
-        const headers = [
-            '"PO NUMBER"', '"PO ITEM"', '"DESCRIPTION"', '"VENDOR"',
-            '"ORDERED QTY"', '"RECEIVED QTY"', '"BALANCE"',
-            '"GR DETAILS"', '"STATUS"', '"LAST GR DATE"'
-        ];
-        const rows = trackingAllData.map(row => {
-            // Flatten GR details into a single readable string
+        const exportData = getColumnFilteredData(); // FOLLOW active filters
+        if (!exportData || exportData.length === 0) { showToast('No data to export.', 'error'); return; }
+        const headers = ['"PO NUMBER"','"PO ITEM"','"DESCRIPTION"','"VENDOR"',
+            '"ORDERED QTY"','"RECEIVED QTY"','"BALANCE"','"GR DETAILS"','"STATUS"','"LAST GR DATE"'];
+        const rows = exportData.map(row => {
             let grSummary = 'No GR yet';
             if (row.gr_details) {
                 grSummary = row.gr_details.split(';;').map(gr => {
@@ -640,99 +846,78 @@ function exportTracking() {
                 }).join(' | ');
             }
             return [
-                `"${row.po_number}"`,
-                `"${row.po_item}"`,
-                `"${(row.description || '-').replace(/"/g, '""')}"`,
-                `"${(row.supplier_name || '-').replace(/"/g, '""')}"`,
+                `"${row.po_number}"`, `"${row.po_item}"`,
+                `"${(row.description||'-').replace(/"/g,'""')}"`,
+                `"${(row.supplier_name||'-').replace(/"/g,'""')}"`,
                 `"${parseFloat(row.ordered_quantity).toLocaleString('id-ID')}"`,
-                `"${parseFloat(row.received_qty || 0).toLocaleString('id-ID')}"`,
-                `"${parseFloat(row.balance_qty || 0).toLocaleString('id-ID')}"`,
-                `"${grSummary.replace(/"/g, '""')}"`,
+                `"${parseFloat(row.received_qty||0).toLocaleString('id-ID')}"`,
+                `"${parseFloat(row.balance_qty||0).toLocaleString('id-ID')}"`,
+                `"${grSummary.replace(/"/g,'""')}"`,
                 `"${row.status}"`,
-                `"${row.last_gr_date ? row.last_gr_date : '-'}"`
+                `"${row.last_gr_date||'-'}"`
             ].join(',');
         });
-        const csv = [headers.join(','), ...rows].join('\n');
-        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `PO_Tracking_${date}.csv`;
-        link.click();
-        showToast('Export successful!', 'success');
+        downloadCSV([headers.join(','), ...rows].join('\n'), `PO_Tracking_${date}.csv`);
         return;
     }
 
-    // Other tabs: export from DOM table (no multiline GR issue on those tabs)
     const tableMap = {
-        'pending':   { id: 'pendingTable',     name: 'Pending_PO'   },
-        'completed': { id: 'completedTable',   name: 'Completed_PO' },
-        'history':   { id: 'syncHistoryTable', name: 'Sync_History' }
+        'pending':   { id:'pendingTable',     name:'Pending_PO'   },
+        'completed': { id:'completedTable',   name:'Completed_PO' },
+        'history':   { id:'syncHistoryTable', name:'Sync_History' }
     };
-
     const target = tableMap[currentTab];
     if (!target) return;
-
     const table = document.getElementById(target.id);
     if (!table) return;
-
-    const headers = Array.from(table.querySelectorAll('thead th'))
-        .map(th => `"${th.textContent.trim()}"`);
-
-    const rows = Array.from(table.querySelectorAll('tbody tr'))
+    const headers = Array.from(table.querySelectorAll('thead th')).map(th => `"${th.textContent.trim()}"`);
+    const rows    = Array.from(table.querySelectorAll('tbody tr'))
         .filter(tr => !tr.querySelector('td[colspan]'))
-        .map(row =>
-            Array.from(row.querySelectorAll('td'))
-                .map(td => `"${td.textContent.trim().replace(/\s+/g, ' ').replace(/"/g, '""')}"`)
-        );
+        .map(row => Array.from(row.querySelectorAll('td')).map(td => `"${td.textContent.trim().replace(/\s+/g,' ').replace(/"/g,'""')}"`));
+    if (rows.length === 0) { showToast('No data to export.', 'error'); return; }
+    downloadCSV([headers.join(','), ...rows.map(r => r.join(','))].join('\n'), `${target.name}_${date}.csv`);
+}
 
-    if (rows.length === 0) {
-        showToast('No data to export.', 'error');
-        return;
-    }
-
-    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+function downloadCSV(csv, filename) {
+    const blob = new Blob(['\uFEFF' + csv], { type:'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `${target.name}_${date}.csv`;
+    link.href  = URL.createObjectURL(blob);
+    link.download = filename;
     link.click();
     showToast('Export successful!', 'success');
 }
 
-// ─── TAB PAGINATION (Pending / Completed / Sync History) ─────────────────────
-
+// ─── TAB PAGINATION ───────────────────────────────────────────────────────────
 function renderTabPagination(tab, total, totalPages) {
     const containerMap = {
         'pending':   '#tab-pending .data-table-container',
         'completed': '#tab-completed .data-table-container',
         'history':   '#tab-history .data-table-container',
     };
-    const pageMap = { 'pending': pendingPage, 'completed': completedPage, 'history': syncPage };
-    const nameMap = { 'pending': 'Pending_PO', 'completed': 'Completed_PO', 'history': 'Sync_History' };
+    const pageMap = { 'pending':pendingPage, 'completed':completedPage, 'history':syncPage };
 
     const existing = document.getElementById(`${tab}Pagination`);
     if (existing) existing.remove();
-
     const container = document.querySelector(containerMap[tab]);
     if (!container) return;
 
     const page  = pageMap[tab];
-    const start = total === 0 ? 0 : (page - 1) * PENDING_PER_PAGE + 1;
-    const end   = Math.min(page * PENDING_PER_PAGE, total);
+    const start = total === 0 ? 0 : (page-1)*PENDING_PER_PAGE+1;
+    const end   = Math.min(page*PENDING_PER_PAGE, total);
 
     const pag = document.createElement('div');
     pag.id = `${tab}Pagination`;
     pag.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-top:1px solid #eee; font-size:13px; color:#555;';
     pag.innerHTML = `
-        <span>${total === 0 ? '0 records' : `Showing ${start}–${end} of ${total} records`}</span>
+        <span>${total===0 ? '0 records' : `Showing ${start}–${end} of ${total} records`}</span>
         <div style="display:flex; gap:6px; align-items:center;">
-            <button onclick="changeTabPage('${tab}', -1)"
-                    style="padding:6px 12px; border:1px solid #ddd; border-radius:6px; background:white; cursor:pointer; ${page <= 1 ? 'opacity:0.4; pointer-events:none;' : ''}">
+            <button onclick="changeTabPage('${tab}',-1)"
+                    style="padding:6px 12px; border:1px solid #ddd; border-radius:6px; background:white; cursor:pointer; ${page<=1?'opacity:0.4;pointer-events:none;':''}">
                 ← Prev
             </button>
             <span style="padding:6px 10px; font-weight:600;">Page ${page} of ${totalPages}</span>
-            <button onclick="changeTabPage('${tab}', 1)"
-                    style="padding:6px 12px; border:1px solid #ddd; border-radius:6px; background:white; cursor:pointer; ${page >= totalPages ? 'opacity:0.4; pointer-events:none;' : ''}">
+            <button onclick="changeTabPage('${tab}',1)"
+                    style="padding:6px 12px; border:1px solid #ddd; border-radius:6px; background:white; cursor:pointer; ${page>=totalPages?'opacity:0.4;pointer-events:none;':''}">
                 Next →
             </button>
         </div>
@@ -742,122 +927,78 @@ function renderTabPagination(tab, total, totalPages) {
 
 function changeTabPage(tab, dir) {
     if (tab === 'pending') {
-        const total = document.getElementById('pendingTableBody')
-            ? Math.ceil(pendingAllData.length / PENDING_PER_PAGE) : 1;
-        pendingPage = Math.min(total, Math.max(1, pendingPage + dir));
+        const t = Math.ceil(pendingAllData.length / PENDING_PER_PAGE);
+        pendingPage = Math.min(t, Math.max(1, pendingPage + dir));
         renderPendingTable();
     } else if (tab === 'completed') {
-        const total = Math.ceil(completedAllData.length / COMPLETED_PER_PAGE);
-        completedPage = Math.min(total, Math.max(1, completedPage + dir));
+        const t = Math.ceil(completedAllData.length / COMPLETED_PER_PAGE);
+        completedPage = Math.min(t, Math.max(1, completedPage + dir));
         renderCompletedTable();
     } else if (tab === 'history') {
-        const total = Math.ceil(syncAllData.length / SYNC_PER_PAGE);
-        syncPage = Math.min(total, Math.max(1, syncPage + dir));
+        const t = Math.ceil(syncAllData.length / SYNC_PER_PAGE);
+        syncPage = Math.min(t, Math.max(1, syncPage + dir));
         renderSyncHistoryTable();
     }
 }
 
 // ─── FILTER HANDLERS ─────────────────────────────────────────────────────────
-
-// Real-time search filter for overview tab
 function initFilterHandlers() {
-    const searchInput  = document.getElementById('searchTracking');
-    const statusFilter = document.getElementById('filterTrackingStatus');
-
-    if (searchInput) {
-        let debounceTimer;
-        searchInput.addEventListener('input', () => {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(loadTrackingData, 400);
-        });
-    }
-    if (statusFilter) {
-        statusFilter.addEventListener('change', loadTrackingData);
-    }
-
-    // Pending tab filters
-    const searchPending = document.getElementById('searchPending');
-    const filterPendingDays = document.getElementById('filterPendingDays');
-    if (searchPending) {
+    const si = document.getElementById('searchTracking');
+    if (si) {
         let d;
-        searchPending.addEventListener('input', () => {
-            clearTimeout(d);
-            d = setTimeout(() => { pendingPage = 1; renderPendingTable(); }, 400);
-        });
+        si.addEventListener('input', () => { clearTimeout(d); d = setTimeout(loadTrackingData, 400); });
     }
-    if (filterPendingDays) {
-        filterPendingDays.addEventListener('change', () => { pendingPage = 1; renderPendingTable(); });
-    }
+    const sf = document.getElementById('filterTrackingStatus');
+    if (sf) sf.addEventListener('change', loadTrackingData);
 
-    // Completed tab filters
-    const searchCompleted = document.getElementById('searchCompleted');
-    const filterCompletedSpeed = document.getElementById('filterCompletedSpeed');
-    if (searchCompleted) {
-        let d;
-        searchCompleted.addEventListener('input', () => {
-            clearTimeout(d);
-            d = setTimeout(() => { completedPage = 1; renderCompletedTable(); }, 400);
-        });
-    }
-    if (filterCompletedSpeed) {
-        filterCompletedSpeed.addEventListener('change', () => { completedPage = 1; renderCompletedTable(); });
-    }
+    const sp = document.getElementById('searchPending');
+    const fp = document.getElementById('filterPendingDays');
+    if (sp) { let d; sp.addEventListener('input', () => { clearTimeout(d); d = setTimeout(() => { pendingPage=1; renderPendingTable(); }, 400); }); }
+    if (fp) fp.addEventListener('change', () => { pendingPage=1; renderPendingTable(); });
 
-    // Sync history search
-    const searchHistory = document.getElementById('searchHistory');
-    if (searchHistory) {
-        let d;
-        searchHistory.addEventListener('input', () => {
-            clearTimeout(d);
-            d = setTimeout(() => { syncPage = 1; renderSyncHistoryTable(); }, 400);
-        });
-    }
+    const sc = document.getElementById('searchCompleted');
+    const fc = document.getElementById('filterCompletedSpeed');
+    if (sc) { let d; sc.addEventListener('input', () => { clearTimeout(d); d = setTimeout(() => { completedPage=1; renderCompletedTable(); }, 400); }); }
+    if (fc) fc.addEventListener('change', () => { completedPage=1; renderCompletedTable(); });
+
+    const sh = document.getElementById('searchHistory');
+    if (sh) { let d; sh.addEventListener('input', () => { clearTimeout(d); d = setTimeout(() => { syncPage=1; renderSyncHistoryTable(); }, 400); }); }
 }
 
-// ─── HELPERS ──────────────────────────────────────────────────────────────────
-
-function formatDate(dateStr) {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    if (isNaN(d)) return dateStr;
-    return d.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
-
-function formatDateTime(dateStr) {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    if (isNaN(d)) return dateStr;
-    return d.toLocaleString('id-ID', {
-        day: '2-digit', month: '2-digit', year: 'numeric',
-        hour: '2-digit', minute: '2-digit'
-    });
-}
-
-function formatNumber(num) {
-    if (num === null || num === undefined) return '0';
-    return parseFloat(num).toLocaleString('id-ID');
-}
-
-function showToast(message, type = 'success') {
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function showToast(message, type='success') {
     const existing = document.getElementById('toast');
     if (existing) existing.remove();
-
     const toast = document.createElement('div');
     toast.id = 'toast';
     toast.style.cssText = `
-        position: fixed;
-        bottom: 30px;
-        right: 30px;
-        padding: 14px 22px;
-        border-radius: 8px;
-        font-size: 14px;
-        font-weight: 500;
-        color: white;
-        z-index: 9999;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-        background: ${type === 'success' ? '#28a745' : '#dc3545'};
+        position:fixed; bottom:30px; right:30px; padding:14px 22px;
+        border-radius:8px; font-size:14px; font-weight:500; color:white;
+        z-index:9999; box-shadow:0 4px 12px rgba(0,0,0,0.2);
+        background:${type==='success'?'#28a745':'#dc3545'};
+        animation:fadeInToast 0.3s ease;
     `;
     toast.textContent = message;
+    const style = document.createElement('style');
+    style.textContent = `@keyframes fadeInToast{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}`;
+    document.head.appendChild(style);
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 4000);
+}
+
+function formatDate(str) {
+    if (!str) return '-';
+    const d = new Date(str);
+    return isNaN(d) ? str : d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+}
+
+function formatDateTime(str) {
+    if (!str) return '-';
+    const d = new Date(str);
+    return isNaN(d) ? str : d.toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+
+function formatNumber(n) {
+    const v = parseFloat(n);
+    return isNaN(v) ? (n||'-') : v.toLocaleString('id-ID',{minimumFractionDigits:0,maximumFractionDigits:2});
 }
