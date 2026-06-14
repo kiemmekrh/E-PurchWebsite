@@ -807,7 +807,18 @@ function calculateGap(rowNum, prefix) {
     }
     
     const gapPrice = planPrice - lastPrice;
-    const gapPercent = lastPrice > 0 ? ((gapPrice / lastPrice) * 100) : 0;
+    
+    // Batasi gap_percent agar tidak melebihi 999.99 (safe untuk decimal(15,2))
+    let gapPercent = 0;
+    if (lastPrice > 0) {
+        gapPercent = (gapPrice / lastPrice) * 100;
+    } else if (planPrice > 0) {
+        // Jika last_price = 0 tapi plan_price > 0, gap = 100% (baru beli)
+        gapPercent = 100;
+    }
+    
+    // Clamp ke range yang aman untuk database
+    gapPercent = Math.max(-999.99, Math.min(999.99, gapPercent));
     
     setFieldValue(rowNum, 'gap_price', gapPrice, prefix);
     setFieldValue(rowNum, 'gap_percent', gapPercent.toFixed(2), prefix);
