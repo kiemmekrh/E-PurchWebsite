@@ -99,6 +99,7 @@ if (isSupplier()) {
             box-shadow: 0 2px 10px rgba(0,0,0,0.08);
         }
         .chart-card.full-width { grid-column: 1 / -1; }
+        .chart-card.half-width { grid-column: span 1; }
         .chart-card h3 {
             font-size: 15px;
             font-weight: 600;
@@ -134,6 +135,19 @@ if (isSupplier()) {
             flex-shrink: 0;
         }
 
+        /* ── Section title ── */
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin: 32px 0 20px 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--primary-yellow);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
         /* ── Loading state ── */
         .chart-loading {
             display: flex;
@@ -142,6 +156,36 @@ if (isSupplier()) {
             height: 200px;
             color: #aaa;
             font-size: 14px;
+        }
+
+        /* ── Invoice stat cards ── */
+        .invoice-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+        .invoice-stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-top: 4px solid;
+            text-align: center;
+        }
+        .invoice-stat-card.approved { border-top-color: var(--success-green); }
+        .invoice-stat-card.pending { border-top-color: var(--warning-orange); }
+        .invoice-stat-card.rejected { border-top-color: var(--danger-red); }
+        .invoice-stat-card.total-inv { border-top-color: var(--info-blue); }
+        .invoice-stat-label {
+            font-size: 14px;
+            color: var(--text-gray);
+            margin-bottom: 8px;
+        }
+        .invoice-stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--text-dark);
         }
     </style>
 </head>
@@ -170,7 +214,12 @@ if (isSupplier()) {
             </div>
         </div>
 
-        <!-- ── STAT CARDS ── -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- ═══ SECTION: PURCHASE ORDER DASHBOARD ═══ -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <div class="section-title">📦 Purchase Order Overview</div>
+
+        <!-- ── PO STAT CARDS ── -->
         <div class="stats-grid">
             <div class="stat-card total">
                 <div class="stat-label">Total PO Items</div>
@@ -190,9 +239,8 @@ if (isSupplier()) {
             </div>
         </div>
 
-        <!-- ── CHARTS ── -->
+        <!-- ── PO CHARTS ── -->
         <div class="dashboard-grid">
-
             <!-- Donut: PO Status Breakdown -->
             <div class="chart-card">
                 <h3>📊 PO Status Breakdown</h3>
@@ -219,7 +267,70 @@ if (isSupplier()) {
                     <canvas id="chartSupplierStacked" style="height:380px;"></canvas>
                 </div>
             </div>
+        </div>
 
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- ═══ SECTION: INVOICE DASHBOARD ═══ -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <div class="section-title">🧾 Invoice Document Control Overview</div>
+
+        <!-- ── INVOICE STAT CARDS ── -->
+        <div class="invoice-stats-grid">
+            <div class="invoice-stat-card total-inv">
+                <div class="invoice-stat-label">Total Invoices</div>
+                <div class="invoice-stat-value" id="totalInvoices">–</div>
+            </div>
+            <div class="invoice-stat-card approved">
+                <div class="invoice-stat-label">Approved</div>
+                <div class="invoice-stat-value" id="approvedInvoices">–</div>
+            </div>
+            <div class="invoice-stat-card pending">
+                <div class="invoice-stat-label">Pending</div>
+                <div class="invoice-stat-value" id="pendingInvoices">–</div>
+            </div>
+            <div class="invoice-stat-card rejected">
+                <div class="invoice-stat-label">Rejected</div>
+                <div class="invoice-stat-value" id="rejectedInvoices">–</div>
+            </div>
+        </div>
+
+        <!-- ── INVOICE CHARTS ── -->
+        <div class="dashboard-grid">
+            <!-- Pie Chart: Invoice Status Distribution -->
+            <div class="chart-card">
+                <h3>📊 Invoice Status Distribution</h3>
+                <p class="chart-subtitle">Breakdown of invoices by validation status</p>
+                <canvas id="chartInvoiceStatus"></canvas>
+                <div class="chart-meta">
+                    <div class="chart-meta-item">
+                        <div class="chart-meta-dot" style="background:#28a745;"></div> Approved
+                    </div>
+                    <div class="chart-meta-item">
+                        <div class="chart-meta-dot" style="background:#ffc107;"></div> Pending
+                    </div>
+                    <div class="chart-meta-item">
+                        <div class="chart-meta-dot" style="background:#dc3545;"></div> Rejected
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bar Chart: Total Invoice Amount per Supplier -->
+            <div class="chart-card">
+                <h3>💰 Total Invoice Amount by Supplier</h3>
+                <p class="chart-subtitle">Sum of all invoice amounts grouped by supplier</p>
+                <div id="invoiceAmountWrap" style="overflow-x:auto; overflow-y:hidden; width:100%;">
+                    <canvas id="chartInvoiceAmount" style="height:300px;"></canvas>
+                </div>
+            </div>
+
+            <!-- Bar Chart: Invoice Count per Supplier -->
+            <div class="chart-card full-width">
+                <h3>📋 Invoice Count by Supplier</h3>
+                <p class="chart-subtitle">Number of invoices submitted per supplier</p>
+                <div id="invoiceCountWrap" style="overflow-x:auto; overflow-y:hidden; width:100%;">
+                    <canvas id="chartInvoiceCount" style="height:320px;"></canvas>
+                </div>
+            </div>
         </div>
     </main>
 
