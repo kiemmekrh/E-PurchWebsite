@@ -204,7 +204,8 @@ function formatQty($num) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reports - E-Purch</title>
+    <title>Activity Reports - E-Purch</title>
+    <link rel="icon" type="image/png" href="../../assets/images/inaco_logo-removebg-preview.png">
     <link rel="stylesheet" href="../../assets/css/dashboard.css">
     <link rel="stylesheet" href="../../assets/css/report.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -372,7 +373,7 @@ function formatQty($num) {
         <!-- Page Header -->
         <div class="page-header-report">
             <div class="page-header-left">
-                <h1>📈 Staff Activity Reports</h1>
+                <h1>📈 Activity Reports</h1>
                 <p>Monitor purchasing staff performance and activities</p>
             </div>
             <div class="page-header-right">
