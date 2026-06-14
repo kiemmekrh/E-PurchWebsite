@@ -21,6 +21,7 @@ try {
             ct.description as material,
             ct.qty_pr as qty,
             ct.plan_qty,
+            ct.plan_currency,
             ct.plan_price_idr as price,
             ct.plan_price_tiba_nu,
             ct.plan_amount as amount,

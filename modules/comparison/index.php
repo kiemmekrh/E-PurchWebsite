@@ -507,6 +507,25 @@ checkAuth(['purchasing_staff', 'manager']);
             color: #666;
             margin-left: 10px;
         }
+        /* Style untuk select currency */
+        .input-last-order select,
+        .input-plan select,
+        .input-awarded select {
+            font-size: 10px;
+            padding: 2px;
+            border: 1px solid #ccc;
+            border-radius: 2px;
+            background: white;
+            width: 100%;
+            text-align: center;
+        }
+
+        .input-last-order[readonly] select,
+        .input-last-order[disabled] {
+            background: #e8e8e8 !important;
+            cursor: not-allowed;
+            color: #666;
+        }
     </style>
 </head>
 <body>
@@ -671,6 +690,7 @@ checkAuth(['purchasing_staff', 'manager']);
                             <th class="col-last-order">QTY</th>
                             <th class="col-last-order">No PO</th>
                             <th class="col-last-order">Tgl PO</th>
+                            <th class="col-last-order">Currency</th>
                             <th class="col-last-order">Price<br>(CNY/USD/SGD)</th>
                             <th class="col-last-order">Tgl<br>Kurs</th>
                             <th class="col-last-order">Nilai Kurs<br>(IDR)</th>
@@ -693,6 +713,19 @@ checkAuth(['purchasing_staff', 'manager']);
                             <td class="col-last-order"><input type="text" class="input-last-order" data-field="last_qty" readonly tabindex="-1"></td>
                             <td class="col-last-order"><input type="text" class="input-last-order" data-field="last_po_number" readonly tabindex="-1"></td>
                             <td class="col-last-order"><input type="date" class="input-last-order" data-field="last_po_date" readonly tabindex="-1"></td>
+                            <td class="col-last-order">
+                                <select class="input-last-order" data-field="last_currency" disabled tabindex="-1" style="font-size:10px; padding:2px; border:none; background:#e8e8e8; cursor:not-allowed;">
+                                    <option value="">-</option>
+                                    <option value="CNY">CNY</option>
+                                    <option value="USD">USD</option>
+                                    <option value="SGD">SGD</option>
+                                    <option value="MYR">MYR</option>
+                                    <option value="EUR">EUR</option>
+                                    <option value="JPY">JPY</option>
+                                    <option value="AUD">AUD</option>
+                                    <option value="GBP">GBP</option>
+                                </select>
+                            </td>
                             <td class="col-last-order"><input type="text" class="input-last-order" data-field="last_price_foreign" readonly tabindex="-1"></td>
                             <td class="col-last-order"><input type="date" class="input-last-order" data-field="last_kurs_date" readonly tabindex="-1"></td>
                             <td class="col-last-order"><input type="text" class="input-last-order" data-field="last_kurs_idr" readonly tabindex="-1"></td>
@@ -712,6 +745,7 @@ checkAuth(['purchasing_staff', 'manager']);
                         </tr>
                         <tr class="sub-header">
                             <th class="col-plan">QTY</th>
+                            <th class="col-plan">Currency</th>
                             <th class="col-plan">Price<br>(CNY/USD/SGD)</th>
                             <th class="col-plan">Tgl<br>Kurs</th>
                             <th class="col-plan">Nilai Kurs<br>(IDR)</th>
@@ -725,6 +759,19 @@ checkAuth(['purchasing_staff', 'manager']);
                         <tr class="data-row" data-row="1">
                             <!-- Plan Order - ALL EDITABLE -->
                             <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_qty" onchange="calculatePlanAmount(1, 'create')"></td>
+                            <td class="col-plan">
+                                <select class="input-plan" data-field="plan_currency" style="font-size:10px; padding:2px; border:1px solid #ccc; background:white;">
+                                    <option value="">-</option>
+                                    <option value="CNY">CNY</option>
+                                    <option value="USD">USD</option>
+                                    <option value="SGD">SGD</option>
+                                    <option value="MYR">MYR</option>
+                                    <option value="EUR">EUR</option>
+                                    <option value="JPY">JPY</option>
+                                    <option value="AUD">AUD</option>
+                                    <option value="GBP">GBP</option>
+                                </select>
+                            </td>
                             <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_price_foreign" onchange="calculatePlanPriceIDR(1, 'create')"></td>
                             <td class="col-plan"><input type="date" class="input-plan" data-field="plan_kurs_date"></td>
                             <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_kurs_idr" onchange="calculatePlanPriceIDR(1, 'create')"></td>
@@ -838,6 +885,7 @@ checkAuth(['purchasing_staff', 'manager']);
                             <th class="col-last-order">QTY</th>
                             <th class="col-last-order">No PO</th>
                             <th class="col-last-order">Tgl PO</th>
+                            <th class="col-last-order">Currency</th>
                             <th class="col-last-order">Price<br>(CNY/USD/SGD)</th>
                             <th class="col-last-order">Tgl<br>Kurs</th>
                             <th class="col-last-order">Nilai Kurs<br>(IDR)</th>
@@ -860,6 +908,19 @@ checkAuth(['purchasing_staff', 'manager']);
                             <td class="col-last-order"><input type="text" inputmode="decimal" class="input-last-order" data-field="last_qty" onchange="calculateLastAmount(1, 'new')"></td>
                             <td class="col-last-order"><input type="text" class="input-last-order" data-field="last_po_number"></td>
                             <td class="col-last-order"><input type="date" class="input-last-order" data-field="last_po_date"></td>
+                            <td class="col-last-order">
+                                <select class="input-last-order" data-field="last_currency" style="font-size:10px; padding:2px; border:1px solid #ccc; background:white;">
+                                    <option value="">-</option>
+                                    <option value="CNY">CNY</option>
+                                    <option value="USD">USD</option>
+                                    <option value="SGD">SGD</option>
+                                    <option value="MYR">MYR</option>
+                                    <option value="EUR">EUR</option>
+                                    <option value="JPY">JPY</option>
+                                    <option value="AUD">AUD</option>
+                                    <option value="GBP">GBP</option>
+                                </select>
+                            </td>
                             <td class="col-last-order"><input type="text" inputmode="decimal" class="input-last-order" data-field="last_price_foreign" onchange="calculateLastPriceIDR(1, 'new')"></td>
                             <td class="col-last-order"><input type="date" class="input-last-order" data-field="last_kurs_date"></td>
                             <td class="col-last-order"><input type="text" inputmode="decimal" class="input-last-order" data-field="last_kurs_idr" onchange="calculateLastPriceIDR(1, 'new')"></td>
@@ -882,6 +943,7 @@ checkAuth(['purchasing_staff', 'manager']);
                         </tr>
                         <tr class="sub-header">
                             <th class="col-plan">QTY</th>
+                            <th class="col-plan">Currency</th>
                             <th class="col-plan">Price<br>(CNY/USD/SGD)</th>
                             <th class="col-plan">Tgl<br>Kurs</th>
                             <th class="col-plan">Nilai Kurs<br>(IDR)</th>
@@ -895,6 +957,19 @@ checkAuth(['purchasing_staff', 'manager']);
                         <tr class="data-row" data-row="1">
                             <!-- Plan Order - ALL EDITABLE -->
                             <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_qty" onchange="calculatePlanAmount(1, 'new')"></td>
+                            <td class="col-plan">
+                                <select class="input-plan" data-field="plan_currency" style="font-size:10px; padding:2px; border:1px solid #ccc; background:white;">
+                                    <option value="">-</option>
+                                    <option value="CNY">CNY</option>
+                                    <option value="USD">USD</option>
+                                    <option value="SGD">SGD</option>
+                                    <option value="MYR">MYR</option>
+                                    <option value="EUR">EUR</option>
+                                    <option value="JPY">JPY</option>
+                                    <option value="AUD">AUD</option>
+                                    <option value="GBP">GBP</option>
+                                </select>
+                            </td>
                             <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_price_foreign" onchange="calculatePlanPriceIDR(1, 'new')"></td>
                             <td class="col-plan"><input type="date" class="input-plan" data-field="plan_kurs_date"></td>
                             <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_kurs_idr" onchange="calculatePlanPriceIDR(1, 'new')"></td>

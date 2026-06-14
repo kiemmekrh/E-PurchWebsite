@@ -78,6 +78,7 @@ try {
             last_qty = :last_qty,
             last_po_number = :last_po_number,
             last_po_date = :last_po_date,
+            last_currency = :last_currency,
             last_price_foreign = :last_price_foreign,
             last_kurs_date = :last_kurs_date,
             last_kurs_idr = :last_kurs_idr,
@@ -88,6 +89,7 @@ try {
             last_supplier_name = :last_supplier_name,
             
             plan_qty = :plan_qty,
+            plan_currency = :plan_currency,
             plan_price_foreign = :plan_price_foreign,
             plan_kurs_date = :plan_kurs_date,
             plan_kurs_idr = :plan_kurs_idr,
@@ -125,6 +127,7 @@ try {
         ':last_qty' => toNumber($data['last_qty'] ?? 0),
         ':last_po_number' => $data['last_po_number'] ?? '',
         ':last_po_date' => toDate($data['last_po_date'] ?? null),
+        ':last_currency' => $data['last_currency'] ?? null,  // TAMBAH INI
         ':last_price_foreign' => toNumber($data['last_price_foreign'] ?? 0),
         ':last_kurs_date' => toDate($data['last_kurs_date'] ?? null),
         ':last_kurs_idr' => toNumber($data['last_kurs_idr'] ?? 0),
@@ -135,6 +138,7 @@ try {
         ':last_supplier_name' => $data['last_supplier'] ?? '',
         
         ':plan_qty' => toNumber($data['plan_qty'] ?? 0),
+        ':plan_currency' => $data['plan_currency'] ?? null,  // TAMBAH INI
         ':plan_price_foreign' => toNumber($data['plan_price_foreign'] ?? 0),
         ':plan_kurs_date' => toDate($data['plan_kurs_date'] ?? null),
         ':plan_kurs_idr' => toNumber($data['plan_kurs_idr'] ?? 0),
@@ -155,7 +159,7 @@ try {
         ':awarded_amount' => toNumber($data['awarded_amount'] ?? 0),
         ':awarded_keterangan' => $data['awarded_keterangan'] ?? '',
         
-        ':status' => $status  // <-- Sudah di-update dengan auto-promote
+        ':status' => $status
     ]);
 
     $pdo->commit();
