@@ -8,10 +8,31 @@ checkAuth(['purchasing_staff', 'manager']);
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Invoice Tracker | E-Purch</title>
+    <title>Invoice Document Control | E-Purch</title>
     <link rel="icon" type="image/png" href="../../assets/images/inaco_logo-removebg-preview.png">
     <link rel="stylesheet" href="../../assets/css/dashboard.css">
     <link rel="stylesheet" href="../../assets/css/modules.css">
+    <style>
+        /* Timestamp column styles */
+        .timestamp-cell {
+            font-size: 12px;
+            color: #666;
+        }
+        .timestamp-cell .date-part {
+            font-weight: 500;
+            color: #333;
+        }
+        .timestamp-cell .time-part {
+            color: #888;
+            font-size: 11px;
+        }
+        .timestamp-cell .validated-by {
+            color: var(--info-blue);
+            font-weight: 500;
+            font-size: 11px;
+            margin-top: 2px;
+        }
+    </style>
 </head>
 <body>
     <?php include '../../includes/sidebar.php'; ?>
@@ -19,7 +40,7 @@ checkAuth(['purchasing_staff', 'manager']);
     <main class="main-content">
         <div class="page-header">
             <div>
-                <h1 class="page-title">Invoice Tracker</h1>
+                <h1 class="page-title">Invoice Document Control</h1>
                 <p class="welcome-text">Manage and validate supplier invoices</p>
             </div>
             <div class="header-actions">
@@ -58,6 +79,7 @@ checkAuth(['purchasing_staff', 'manager']);
                         <th>AMOUNT</th>
                         <th>STATUS ↕</th>
                         <th>VALIDATED BY</th>
+                        <th>VALIDATED AT</th>
                         <th>ACTIONS</th>
                     </tr>
                 </thead>
@@ -82,6 +104,9 @@ checkAuth(['purchasing_staff', 'manager']);
                 <div class="form-group" style="margin-top: 20px;">
                     <label>Validation Notes</label>
                     <textarea id="validationNotes" class="form-input form-textarea" placeholder="Enter notes (optional)"></textarea>
+                </div>
+                <div id="previousValidationInfo" style="margin-top: 15px; display: none;">
+                    <!-- Shows previous validation details if re-validating -->
                 </div>
             </div>
             <div class="modal-footer">

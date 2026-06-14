@@ -24,10 +24,14 @@ try {
             i.file_path,
             i.status,
             i.validation_notes,
+            i.validated_at,
+            i.validated_by,
             i.supplier_id,
-            s.supplier_name
+            s.supplier_name,
+            u.name as validated_by_name
         FROM invoice i
         LEFT JOIN supplier s ON i.supplier_id = s.supplier_id
+        LEFT JOIN user u ON i.validated_by = u.user_id
         WHERE i.invoice_id = ?
     ");
     
@@ -45,4 +49,3 @@ try {
     error_log("Invoice detail error: " . $e->getMessage());
     echo json_encode(['success' => false, 'error' => 'Database error']);
 }
-?>

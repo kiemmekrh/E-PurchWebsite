@@ -122,6 +122,41 @@ checkAuth(['supplier']);
         @keyframes spinner {
             to { transform: rotate(360deg); }
         }
+
+        /* ===== VALIDATION INFO STYLES ===== */
+        .validation-info {
+            background: #f8f9fa;
+            border-left: 4px solid var(--info-blue);
+            padding: 12px 16px;
+            margin-top: 10px;
+            border-radius: 0 8px 8px 0;
+        }
+        .validation-info .validation-label {
+            font-size: 12px;
+            color: #888;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        .validation-info .validation-text {
+            font-size: 13px;
+            color: #333;
+            line-height: 1.5;
+        }
+        .validation-info .validation-time {
+            font-size: 11px;
+            color: #999;
+            margin-top: 6px;
+        }
+        .validation-info.approved {
+            border-left-color: var(--success-green);
+            background: #f0f9f0;
+        }
+        .validation-info.rejected {
+            border-left-color: var(--danger-red);
+            background: #fef0f0;
+        }
     </style>
 </head>
 <body>
@@ -138,7 +173,7 @@ checkAuth(['supplier']);
         </div>
     </div>
 
-    <div style="max-width: 800px; margin: 0 auto; padding: 30px;">
+    <div style="max-width: 1000px; margin: 0 auto; padding: 30px;">
         <div class="supplier-header">
             <div class="supplier-info">
                 <div class="supplier-logo">📄</div>
@@ -219,6 +254,7 @@ checkAuth(['supplier']);
                                 <th>DATE</th>
                                 <th>AMOUNT</th>
                                 <th>STATUS</th>
+                                <th>VALIDATION INFO</th>
                             </tr>
                         </thead>
                         <tbody id="historyTableBody">
@@ -343,22 +379,41 @@ checkAuth(['supplier']);
                     if (!data.data || data.data.length === 0) {
                         tbody.innerHTML = `
                             <tr>
-                                <td colspan="5" style="text-align: center; padding: 30px; color: #888;">
+                                <td colspan="6" style="text-align: center; padding: 30px; color: #888;">
                                     No invoices submitted yet.
                                 </td>
                             </tr>
                         `;
                         return;
                     }
-                    tbody.innerHTML = data.data.map(inv => `
+                    tbody.innerHTML = data.data.map(inv => {
+                        const statusClass = (inv.status || 'Pending').toLowerCase();
+                        
+                        // Build validation info HTML
+                        let validationHtml = '<span style="color: #888; font-size: 12px;">—</span>';
+                        if (inv.status === 'Approved' || inv.status === 'Rejected') {
+                            const validationClass = inv.status.toLowerCase();
+                            const notes = inv.validation_notes ? escapeHtml(inv.validation_notes) : 'No notes provided';
+                            const time = inv.validated_at ? formatDateTime(inv.validated_at) : '—';
+                            validationHtml = `
+                                <div class="validation-info ${validationClass}">
+                                    <div class="validation-label">${inv.status} by ${escapeHtml(inv.validated_by_name || 'Staff')}</div>
+                                    <div class="validation-text">"${notes}"</div>
+                                    <div class="validation-time">🕐 ${time}</div>
+                                </div>
+                            `;
+                        }
+                        
+                        return `
                         <tr>
-                            <td>${inv.invoice_number}</td>
-                            <td>${inv.po_number}</td>
-                            <td>${inv.invoice_date}</td>
+                            <td>${escapeHtml(inv.invoice_number)}</td>
+                            <td>${escapeHtml(inv.po_number)}</td>
+                            <td>${formatDate(inv.invoice_date)}</td>
                             <td>IDR ${parseFloat(inv.amount).toLocaleString()}</td>
-                            <td><span class="status-badge status-${inv.status.toLowerCase()}">${inv.status}</span></td>
+                            <td><span class="status-badge status-${statusClass}">${inv.status || 'Pending'}</span></td>
+                            <td>${validationHtml}</td>
                         </tr>
-                    `).join('');
+                    `}).join('');
                 })
                 .catch(err => {
                     console.error('Failed to load history:', err);
@@ -367,6 +422,32 @@ checkAuth(['supplier']);
         
         function logout() {
             fetch('../../auth/logout.php').then(() => location.href = '../../index.php');
+        }
+        
+        // Helper functions
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('id-ID');
+        }
+        
+        function formatDateTime(dateStr) {
+            if (!dateStr) return '—';
+            const d = new Date(dateStr);
+            return d.toLocaleString('id-ID', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
         }
         
         // Load history on page load

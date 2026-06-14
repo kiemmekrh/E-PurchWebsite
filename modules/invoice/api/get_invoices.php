@@ -24,11 +24,13 @@ try {
             i.file_path,
             i.submitted_at,
             i.validation_notes,
+            i.validated_at,
+            i.validated_by,
             s.supplier_name,
             u.name as validated_by_name
-        FROM Invoice i
-        LEFT JOIN Supplier s ON i.supplier_id = s.supplier_id
-        LEFT JOIN User u ON i.validated_by = u.user_id
+        FROM invoice i
+        LEFT JOIN supplier s ON i.supplier_id = s.supplier_id
+        LEFT JOIN user u ON i.validated_by = u.user_id
         WHERE 1=1
     ";
     
@@ -68,7 +70,7 @@ try {
     $invoices = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     // Load suppliers for filter dropdown
-    $suppliers = $pdo->query("SELECT supplier_id, supplier_name FROM Supplier ORDER BY supplier_name")->fetchAll(PDO::FETCH_ASSOC);
+    $suppliers = $pdo->query("SELECT supplier_id, supplier_name FROM supplier ORDER BY supplier_name")->fetchAll(PDO::FETCH_ASSOC);
     
     echo json_encode([
         'success' => true, 
@@ -80,4 +82,3 @@ try {
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }
-?>

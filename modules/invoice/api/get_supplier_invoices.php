@@ -20,19 +20,24 @@ try {
         exit;
     }
 
-    // Query HANYA invoice milik supplier yang login
+    // Query invoice milik supplier yang login + JOIN dengan user untuk validated_by_name
     $stmt = $pdo->prepare("
         SELECT 
-            invoice_id,
-            invoice_number,
-            po_number,
-            DATE_FORMAT(invoice_date, '%Y-%m-%d') as invoice_date,
-            amount,
-            status,
-            DATE_FORMAT(submitted_at, '%Y-%m-%d %H:%i') as submitted_at
-        FROM Invoice 
-        WHERE supplier_id = ? 
-        ORDER BY submitted_at DESC
+            i.invoice_id,
+            i.invoice_number,
+            i.po_number,
+            DATE_FORMAT(i.invoice_date, '%Y-%m-%d') as invoice_date,
+            i.amount,
+            i.status,
+            i.validation_notes,
+            i.validated_at,
+            i.validated_by,
+            u.name as validated_by_name,
+            DATE_FORMAT(i.submitted_at, '%Y-%m-%d %H:%i') as submitted_at
+        FROM invoice i
+        LEFT JOIN user u ON i.validated_by = u.user_id
+        WHERE i.supplier_id = ? 
+        ORDER BY i.submitted_at DESC
         LIMIT 50
     ");
     $stmt->execute([$supplierId]);
@@ -44,7 +49,7 @@ try {
     echo json_encode([
         'success' => true, 
         'data' => $invoices,
-        'supplier_id' => $supplierId, // untuk debug
+        'supplier_id' => $supplierId,
         'count' => count($invoices)
     ]);
     
@@ -52,4 +57,3 @@ try {
     error_log("Get supplier invoices error: " . $e->getMessage());
     echo json_encode(['success' => false, 'error' => 'Database error']);
 }
-?>
