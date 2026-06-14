@@ -71,6 +71,15 @@ if (session_status() === PHP_SESSION_NONE) {
                 </a>
             </li>
             <?php endif; ?>
+            <!-- Report: Manager Only -->
+            <?php if ($_SESSION['role'] === 'manager'): ?>
+            <li class="nav-item">
+                <a href="../report/index.php" class="nav-link <?php echo $module === 'report' ? 'active' : ''; ?>">
+                    <span>📈</span>
+                    <span>Activity Reports</span>
+                </a>
+            </li>
+            <?php endif; ?>
         </ul>
     </nav>
     
