@@ -9,28 +9,21 @@ header('Content-Type: application/json');
 
 $data = json_decode(file_get_contents('php://input'), true);
 
-// ============================================
-// AUTO STATUS PROMOTION - DRAFT TO FINAL
-// ============================================
+function toDate($value) {
+    return (empty($value) || $value === '0000-00-00') ? null : $value;
+}
 
-/**
- * Cek apakah semua required fields sudah terisi
- * untuk auto-promote dari DRAFT ke FINAL
- */
-function isAllFieldsFilled($data) {
-    $required = [
-        'pr_number', 'material_code', 'description', 'uom', 'qty_pr',
-        'plan_qty', 'plan_price_idr', 'plan_price_tiba_nu', 'plan_amount', 'plan_supplier',
-        'awarded_po_date', 'awarded_deliv_date', 'awarded_po_number', 'awarded_supplier', 'awarded_amount'
-    ];
-    
-    foreach ($required as $field) {
-        $value = $data[$field] ?? null;
-        if (empty($value) || $value === '' || $value === '0' || $value === '0,00') {
-            return false;
-        }
-    }
-    return true;
+function toNumber($value) {
+    if (empty($value) || $value === '') return 0;
+    $clean = str_replace('.', '', $value);
+    $clean = str_replace(',', '.', $clean);
+    return floatval($clean);
+}
+
+function clampGapPercent($value) {
+    if (empty($value) || $value === '') return 0;
+    $num = floatval($value);
+    return max(-999.99, min(999.99, $num));
 }
 
 // Cek status saat ini dari database
@@ -41,31 +34,12 @@ if (isset($data['comparison_id'])) {
     $currentStatus = $checkStmt->fetchColumn() ?: 'draft';
 }
 
-// Ambil status dari request, atau gunakan status saat ini
 $status = $data['status'] ?? $currentStatus;
-$autoPromoted = false;
-
-// Auto-promote: jika status saat ini DRAFT dan semua field terisi, promote ke FINAL
-if ($currentStatus === 'draft' && isAllFieldsFilled($data)) {
-    $status = 'final';
-    $autoPromoted = true;
-}
-
-// ============================================
-// END AUTO STATUS PROMOTION
-// ============================================
-
-function toDate($value) {
-    return (empty($value) || $value === '0000-00-00') ? null : $value;
-}
-
-function toNumber($value) {
-    return (empty($value) || $value === '') ? 0 : floatval($value);
-}
 
 try {
     $pdo->beginTransaction();
 
+    // 1. UPDATE Comparison_Table (parent only - tanpa plan fields)
     $stmt = $pdo->prepare("
         UPDATE Comparison_Table SET
             pr_number = :pr_number,
@@ -87,20 +61,6 @@ try {
             last_amount = :last_amount,
             last_supplier_id = :last_supplier_id,
             last_supplier_name = :last_supplier_name,
-            
-            plan_qty = :plan_qty,
-            plan_currency = :plan_currency,
-            plan_price_foreign = :plan_price_foreign,
-            plan_kurs_date = :plan_kurs_date,
-            plan_kurs_idr = :plan_kurs_idr,
-            plan_price_idr = :plan_price_idr,
-            plan_price_tiba_nu = :plan_price_tiba_nu,
-            plan_amount = :plan_amount,
-            plan_supplier_id = :plan_supplier_id,
-            plan_supplier_name = :plan_supplier_name,
-            
-            gap_price = :gap_price,
-            gap_percent = :gap_percent,
             
             awarded_po_date = :awarded_po_date,
             awarded_deliv_date = :awarded_deliv_date,
@@ -127,7 +87,7 @@ try {
         ':last_qty' => toNumber($data['last_qty'] ?? 0),
         ':last_po_number' => $data['last_po_number'] ?? '',
         ':last_po_date' => toDate($data['last_po_date'] ?? null),
-        ':last_currency' => $data['last_currency'] ?? null,  // TAMBAH INI
+        ':last_currency' => $data['last_currency'] ?? null,
         ':last_price_foreign' => toNumber($data['last_price_foreign'] ?? 0),
         ':last_kurs_date' => toDate($data['last_kurs_date'] ?? null),
         ':last_kurs_idr' => toNumber($data['last_kurs_idr'] ?? 0),
@@ -136,20 +96,6 @@ try {
         ':last_amount' => toNumber($data['last_amount'] ?? 0),
         ':last_supplier_id' => null,
         ':last_supplier_name' => $data['last_supplier'] ?? '',
-        
-        ':plan_qty' => toNumber($data['plan_qty'] ?? 0),
-        ':plan_currency' => $data['plan_currency'] ?? null,  // TAMBAH INI
-        ':plan_price_foreign' => toNumber($data['plan_price_foreign'] ?? 0),
-        ':plan_kurs_date' => toDate($data['plan_kurs_date'] ?? null),
-        ':plan_kurs_idr' => toNumber($data['plan_kurs_idr'] ?? 0),
-        ':plan_price_idr' => toNumber($data['plan_price_idr'] ?? 0),
-        ':plan_price_tiba_nu' => toNumber($data['plan_price_tiba_nu'] ?? 0),
-        ':plan_amount' => toNumber($data['plan_amount'] ?? 0),
-        ':plan_supplier_id' => null,
-        ':plan_supplier_name' => $data['plan_supplier'] ?? '',
-        
-        ':gap_price' => toNumber($data['gap_price'] ?? 0),
-        ':gap_percent' => toNumber($data['gap_percent'] ?? 0),
         
         ':awarded_po_date' => toDate($data['awarded_po_date'] ?? null),
         ':awarded_deliv_date' => toDate($data['awarded_deliv_date'] ?? null),
@@ -162,21 +108,58 @@ try {
         ':status' => $status
     ]);
 
+    // 2. DELETE old plan rows
+    $pdo->prepare("DELETE FROM Comparison_Plan_Row WHERE comparison_id = ?")
+        ->execute([$data['comparison_id']]);
+
+    // 3. INSERT new plan rows
+    if (!empty($data['plan_rows']) && is_array($data['plan_rows'])) {
+        $planStmt = $pdo->prepare("
+            INSERT INTO Comparison_Plan_Row (
+                comparison_id, plan_qty, plan_currency, plan_price_foreign,
+                plan_kurs_date, plan_kurs_idr, plan_price_idr, plan_price_tiba_nu,
+                plan_amount, plan_supplier_id, plan_supplier_name,
+                gap_price, gap_percent, is_awarded
+            ) VALUES (
+                :comparison_id, :plan_qty, :plan_currency, :plan_price_foreign,
+                :plan_kurs_date, :plan_kurs_idr, :plan_price_idr, :plan_price_tiba_nu,
+                :plan_amount, :plan_supplier_id, :plan_supplier_name,
+                :gap_price, :gap_percent, :is_awarded
+            )
+        ");
+
+        $awardedPlanRow = intval($data['awarded_plan_row'] ?? 0);
+
+        foreach ($data['plan_rows'] as $index => $row) {
+            $rowNum = $index + 1;
+            $isAwarded = ($rowNum === $awardedPlanRow) ? 1 : 0;
+
+            $planStmt->execute([
+                ':comparison_id' => $data['comparison_id'],
+                ':plan_qty' => toNumber($row['plan_qty'] ?? 0),
+                ':plan_currency' => $row['plan_currency'] ?? null,
+                ':plan_price_foreign' => toNumber($row['plan_price_foreign'] ?? 0),
+                ':plan_kurs_date' => toDate($row['plan_kurs_date'] ?? null),
+                ':plan_kurs_idr' => toNumber($row['plan_kurs_idr'] ?? 0),
+                ':plan_price_idr' => toNumber($row['plan_price_idr'] ?? 0),
+                ':plan_price_tiba_nu' => toNumber($row['plan_price_tiba_nu'] ?? 0),
+                ':plan_amount' => toNumber($row['plan_amount'] ?? 0),
+                ':plan_supplier_id' => null,
+                ':plan_supplier_name' => $row['plan_supplier'] ?? '',
+                ':gap_price' => toNumber($row['gap_price'] ?? 0),
+                ':gap_percent' => clampGapPercent($row['gap_percent'] ?? 0),
+                ':is_awarded' => $isAwarded
+            ]);
+        }
+    }
+
     $pdo->commit();
 
-    // Response dengan info auto-promote
-    $response = [
+    echo json_encode([
         'success' => true,
         'status' => $status,
         'message' => 'Updated successfully'
-    ];
-
-    if ($autoPromoted) {
-        $response['message'] = 'Auto-promoted from DRAFT to FINAL! All required fields are now complete.';
-        $response['auto_promoted'] = true;
-    }
-
-    echo json_encode($response);
+    ]);
 
 } catch (Exception $e) {
     $pdo->rollBack();

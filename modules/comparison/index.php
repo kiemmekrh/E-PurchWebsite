@@ -526,6 +526,43 @@ checkAuth(['purchasing_staff', 'manager']);
             cursor: not-allowed;
             color: #666;
         }
+        /* Award button in plan row */
+        .btn-award-plan {
+            background: #ff9800;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 3px 8px;
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .btn-award-plan:hover {
+            background: #f57c00;
+            transform: scale(1.05);
+        }
+
+        .btn-award-plan.awarded {
+            background: #4caf50;
+        }
+
+        /* Best price highlight */
+        .plan-row.best-price td {
+            background: #e8f5e9 !important;
+        }
+
+        .plan-row.awarded-row td {
+            background: #fff9c4 !important;
+            border: 2px solid #ff9800 !important;
+        }
+
+        /* Gap status */
+        .gap-status-cheaper { color: #2e7d32; font-weight: 600; }
+        .gap-status-expensive { color: #c62828; font-weight: 600; }
+        .gap-status-same { color: #666; }
     </style>
 </head>
 <body>
@@ -737,100 +774,116 @@ checkAuth(['purchasing_staff', 'manager']);
                     </tbody>
                 </table>
 
-                <!-- PLAN ORDER SECTION -->
-                <table class="comparison-spreadsheet" style="margin-top: 0; border-top: none;">
-                    <thead>
-                        <tr class="section-header">
-                            <th colspan="8" class="header-plan">PLAN ORDER</th>
-                        </tr>
-                        <tr class="sub-header">
-                            <th class="col-plan">QTY</th>
-                            <th class="col-plan">Currency</th>
-                            <th class="col-plan">Price<br>(CNY/USD/SGD)</th>
-                            <th class="col-plan">Tgl<br>Kurs</th>
-                            <th class="col-plan">Nilai Kurs<br>(IDR)</th>
-                            <th class="col-plan">Price<br>(IDR)</th>
-                            <th class="col-plan">TIBA DI NU<br>(IDR)</th>
-                            <th class="col-plan">Amount<br>(IDR)</th>
-                            <th class="col-plan">Supplier</th>
-                        </tr>
-                    </thead>
-                    <tbody id="createPlanOrderBody">
-                        <tr class="data-row" data-row="1">
-                            <!-- Plan Order - ALL EDITABLE -->
-                            <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_qty" onchange="calculatePlanAmount(1, 'create')"></td>
-                            <td class="col-plan">
-                                <select class="input-plan" data-field="plan_currency" style="font-size:10px; padding:2px; border:1px solid #ccc; background:white;">
-                                    <option value="">-</option>
-                                    <option value="CNY">CNY</option>
-                                    <option value="USD">USD</option>
-                                    <option value="SGD">SGD</option>
-                                    <option value="MYR">MYR</option>
-                                    <option value="EUR">EUR</option>
-                                    <option value="JPY">JPY</option>
-                                    <option value="AUD">AUD</option>
-                                    <option value="GBP">GBP</option>
-                                </select>
-                            </td>
-                            <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_price_foreign" onchange="calculatePlanPriceIDR(1, 'create')"></td>
-                            <td class="col-plan"><input type="date" class="input-plan" data-field="plan_kurs_date"></td>
-                            <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_kurs_idr" onchange="calculatePlanPriceIDR(1, 'create')"></td>
-                            <!-- Price IDR: Bisa manual atau auto -->
-                            <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_price_idr" onchange="manualOverridePlanPriceIDR(1, 'create')"></td>
-                            <!-- TIBA DI NU: Auto dari Price IDR -->
-                            <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_price_tiba_nu" onchange="calculatePlanAmount(1, 'create')" readonly tabindex="-1"></td>
-                            <!-- Amount: Auto QTY × TIBA DI NU -->
-                            <td class="col-plan"><input type="text" class="input-plan" data-field="plan_amount" readonly tabindex="-1"></td>
-                            <td class="col-plan"><input type="text" class="input-plan" data-field="plan_supplier" list="supplierList"></td>
-                        </tr>
-                    </tbody>
-                </table>
+                <!-- PLAN ORDER SECTION - MULTIPLE ROWS -->
+                <!-- PLAN ORDER SECTION - MULTIPLE ROWS -->
+<div class="plan-rows-wrapper">
+    <div class="plan-rows-table-container">
+        <table class="comparison-spreadsheet" id="createPlanOrderTable" style="margin-top:0; border-top:none;">
+            <thead>
+                <tr class="section-header">
+                    <th colspan="12" class="header-plan">PLAN ORDER</th>
+                </tr>
+                <tr class="sub-header">
+                    <th style="width:36px;">#</th>
+                    <th class="col-plan">QTY</th>
+                    <th class="col-plan">Currency</th>
+                    <th class="col-plan">Price<br>(CNY/USD/SGD)</th>
+                    <th class="col-plan">Tgl<br>Kurs</th>
+                    <th class="col-plan">Nilai Kurs<br>(IDR)</th>
+                    <th class="col-plan">Price<br>(IDR)</th>
+                    <th class="col-plan">TIBA DI NU<br>(IDR)</th>
+                    <th class="col-plan">Amount<br>(IDR)</th>
+                    <th class="col-plan">Supplier</th>
+                    <th style="width:70px;">Award</th>
+                    <th style="width:40px;"></th>
+                </tr>
+            </thead>
+            <tbody id="createPlanOrderBody">
+                <tr class="data-row plan-row" data-plan-row="1">
+                    <td><span class="plan-row-num">1</span></td>
+                    <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_qty" onchange="calculatePlanAmount(1, 'create')"></td>
+                    <td class="col-plan">
+                        <select class="input-plan" data-field="plan_currency" style="font-size:10px; padding:2px; border:1px solid #ccc; background:white; width:100%;">
+                            <option value="">-</option>
+                            <option value="CNY">CNY</option>
+                            <option value="USD">USD</option>
+                            <option value="SGD">SGD</option>
+                            <option value="MYR">MYR</option>
+                            <option value="EUR">EUR</option>
+                            <option value="JPY">JPY</option>
+                            <option value="AUD">AUD</option>
+                            <option value="GBP">GBP</option>
+                        </select>
+                    </td>
+                    <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_price_foreign" onchange="calculatePlanPriceIDR(1, 'create')"></td>
+                    <td class="col-plan"><input type="date" class="input-plan" data-field="plan_kurs_date"></td>
+                    <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_kurs_idr" onchange="calculatePlanPriceIDR(1, 'create')"></td>
+                    <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_price_idr" onchange="manualOverridePlanPriceIDR(1, 'create')"></td>
+                    <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_price_tiba_nu" readonly tabindex="-1"></td>
+                    <td class="col-plan"><input type="text" class="input-plan" data-field="plan_amount" readonly tabindex="-1"></td>
+                    <td class="col-plan"><input type="text" class="input-plan" data-field="plan_supplier" list="supplierList"></td>
+                    <td style="padding:2px;">
+                        <button type="button" class="btn-award-plan" onclick="fillAwardedFromPlan('create', 1)" title="Fill Awarded from this plan">🏆 Award</button>
+                    </td>
+                    <td style="padding:2px;">
+                        <button type="button" class="btn-remove-plan" onclick="removePlanRow('create', 1)" title="Remove" style="display:none;">×</button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <button type="button" class="btn-add-plan" onclick="addPlanRow('create')" title="Add Plan Order Row">+ Add Plan Order Row</button>
+</div>
 
-                <!-- GAP SECTION -->
-                <table class="comparison-spreadsheet" style="margin-top: 0; border-top: none;">
-                    <thead>
-                        <tr class="section-header">
-                            <th colspan="2" class="header-gap">GAP (Auto-calculated)</th>
-                        </tr>
-                        <tr class="sub-header">
-                            <th class="col-gap">Price<br>(IDR)</th>
-                            <th class="col-gap">%</th>
-                        </tr>
-                    </thead>
-                    <tbody id="createGapBody">
-                        <tr class="data-row" data-row="1">
-                            <td class="col-gap"><input type="text" class="input-gap" data-field="gap_price" readonly tabindex="-1"></td>
-                            <td class="col-gap"><input type="text" class="input-gap" data-field="gap_percent" readonly tabindex="-1"></td>
-                        </tr>
-                    </tbody>
-                </table>
+<!-- GAP SECTION - PER PLAN ROW -->
+<table class="comparison-spreadsheet" id="createGapTable" style="margin-top:0; border-top:none;">
+    <thead>
+        <tr class="section-header">
+            <th colspan="4" class="header-gap">GAP (Auto-calculated) — Per Plan Order</th>
+        </tr>
+        <tr class="sub-header">
+            <th style="width:36px;">#</th>
+            <th class="col-gap">Price<br>(IDR)</th>
+            <th class="col-gap">%</th>
+            <th class="col-gap">Status</th>
+        </tr>
+    </thead>
+    <tbody id="createGapBody">
+        <tr class="data-row gap-row" data-gap-row="1">
+            <td><span class="gap-row-num">1</span></td>
+            <td class="col-gap"><input type="text" class="input-gap" data-field="gap_price" readonly tabindex="-1"></td>
+            <td class="col-gap"><input type="text" class="input-gap" data-field="gap_percent" readonly tabindex="-1"></td>
+            <td class="col-gap gap-status" style="font-size:11px;">—</td>
+        </tr>
+    </tbody>
+</table>
 
-                <!-- AWARDED SECTION -->
-                <table class="comparison-spreadsheet" style="margin-top: 0; border-top: none;">
-                    <thead>
-                        <tr class="section-header">
-                            <th colspan="6" class="header-awarded">AWARDED (Final Selection)</th>
-                        </tr>
-                        <tr class="sub-header">
-                            <th class="col-awarded">Tgl PO</th>
-                            <th class="col-awarded">Deliv.<br>Schedule</th>
-                            <th class="col-awarded">No PO</th>
-                            <th class="col-awarded">Supplier</th>
-                            <th class="col-awarded">Amount<br>(IDR)</th>
-                            <th class="col-awarded">Keterangan</th>
-                        </tr>
-                    </thead>
-                    <tbody id="createAwardedBody">
-                        <tr class="data-row" data-row="1">
-                            <td class="col-awarded"><input type="date" class="input-awarded" data-field="awarded_po_date"></td>
-                            <td class="col-awarded"><input type="date" class="input-awarded" data-field="awarded_deliv_date"></td>
-                            <td class="col-awarded"><input type="text" class="input-awarded" data-field="awarded_po_number"></td>
-                            <td class="col-awarded"><input type="text" class="input-awarded" data-field="awarded_supplier" list="supplierList"></td>
-                            <td class="col-awarded"><input type="text" inputmode="decimal" class="input-awarded" data-field="awarded_amount"></td>
-                            <td class="col-awarded"><input type="text" class="input-awarded" data-field="awarded_keterangan"></td>
-                        </tr>
-                    </tbody>
-                </table>
+<!-- AWARDED SECTION (Template Original) -->
+<table class="comparison-spreadsheet" style="margin-top: 0; border-top: none;">
+    <thead>
+        <tr class="section-header">
+            <th colspan="6" class="header-awarded">AWARDED (Final Selection)</th>
+        </tr>
+        <tr class="sub-header">
+            <th class="col-awarded">Tgl PO</th>
+            <th class="col-awarded">Deliv.<br>Schedule</th>
+            <th class="col-awarded">No PO</th>
+            <th class="col-awarded">Supplier</th>
+            <th class="col-awarded">Amount<br>(IDR)</th>
+            <th class="col-awarded">Keterangan</th>
+        </tr>
+    </thead>
+    <tbody id="createAwardedBody">
+        <tr class="data-row" data-row="1">
+            <td class="col-awarded"><input type="date" class="input-awarded" data-field="awarded_po_date"></td>
+            <td class="col-awarded"><input type="date" class="input-awarded" data-field="awarded_deliv_date"></td>
+            <td class="col-awarded"><input type="text" class="input-awarded" data-field="awarded_po_number"></td>
+            <td class="col-awarded"><input type="text" class="input-awarded" data-field="awarded_supplier" list="supplierList"></td>
+            <td class="col-awarded"><input type="text" inputmode="decimal" class="input-awarded" data-field="awarded_amount"></td>
+            <td class="col-awarded"><input type="text" class="input-awarded" data-field="awarded_keterangan"></td>
+        </tr>
+    </tbody>
+</table>
             </div>
 
             <datalist id="supplierList"></datalist>
@@ -936,99 +989,115 @@ checkAuth(['purchasing_staff', 'manager']);
                 </table>
 
                 <!-- PLAN ORDER SECTION -->
-                <table class="comparison-spreadsheet" style="margin-top: 0; border-top: none;">
-                    <thead>
-                        <tr class="section-header">
-                            <th colspan="8" class="header-plan">PLAN ORDER</th>
-                        </tr>
-                        <tr class="sub-header">
-                            <th class="col-plan">QTY</th>
-                            <th class="col-plan">Currency</th>
-                            <th class="col-plan">Price<br>(CNY/USD/SGD)</th>
-                            <th class="col-plan">Tgl<br>Kurs</th>
-                            <th class="col-plan">Nilai Kurs<br>(IDR)</th>
-                            <th class="col-plan">Price<br>(IDR)</th>
-                            <th class="col-plan">TIBA DI NU<br>(IDR)</th>
-                            <th class="col-plan">Amount<br>(IDR)</th>
-                            <th class="col-plan">Supplier</th>
-                        </tr>
-                    </thead>
-                    <tbody id="newPlanOrderBody">
-                        <tr class="data-row" data-row="1">
-                            <!-- Plan Order - ALL EDITABLE -->
-                            <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_qty" onchange="calculatePlanAmount(1, 'new')"></td>
-                            <td class="col-plan">
-                                <select class="input-plan" data-field="plan_currency" style="font-size:10px; padding:2px; border:1px solid #ccc; background:white;">
-                                    <option value="">-</option>
-                                    <option value="CNY">CNY</option>
-                                    <option value="USD">USD</option>
-                                    <option value="SGD">SGD</option>
-                                    <option value="MYR">MYR</option>
-                                    <option value="EUR">EUR</option>
-                                    <option value="JPY">JPY</option>
-                                    <option value="AUD">AUD</option>
-                                    <option value="GBP">GBP</option>
-                                </select>
-                            </td>
-                            <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_price_foreign" onchange="calculatePlanPriceIDR(1, 'new')"></td>
-                            <td class="col-plan"><input type="date" class="input-plan" data-field="plan_kurs_date"></td>
-                            <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_kurs_idr" onchange="calculatePlanPriceIDR(1, 'new')"></td>
-                            <!-- Price IDR: Bisa manual atau auto -->
-                            <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_price_idr" onchange="manualOverridePlanPriceIDR(1, 'new')"></td>
-                            <!-- TIBA DI NU: Auto dari Price IDR -->
-                            <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_price_tiba_nu" onchange="calculatePlanAmount(1, 'new')" readonly tabindex="-1"></td>
-                            <!-- Amount: Auto QTY × TIBA DI NU -->
-                            <td class="col-plan"><input type="text" class="input-plan" data-field="plan_amount" readonly tabindex="-1"></td>
-                            <td class="col-plan"><input type="text" class="input-plan" data-field="plan_supplier" list="supplierList"></td>
-                        </tr>
-                    </tbody>
-                </table>
+                <!-- PLAN ORDER SECTION - MULTIPLE ROWS -->
+<div class="plan-rows-wrapper">
+    <div class="plan-rows-table-container">
+        <table class="comparison-spreadsheet" id="newPlanOrderTable" style="margin-top:0; border-top:none;">
+            <thead>
+                <tr class="section-header">
+                    <th colspan="12" class="header-plan">PLAN ORDER</th>
+                </tr>
+                <tr class="sub-header">
+                    <th style="width:36px;">#</th>
+                    <th class="col-plan">QTY</th>
+                    <th class="col-plan">Currency</th>
+                    <th class="col-plan">Price<br>(CNY/USD/SGD)</th>
+                    <th class="col-plan">Tgl<br>Kurs</th>
+                    <th class="col-plan">Nilai Kurs<br>(IDR)</th>
+                    <th class="col-plan">Price<br>(IDR)</th>
+                    <th class="col-plan">TIBA DI NU<br>(IDR)</th>
+                    <th class="col-plan">Amount<br>(IDR)</th>
+                    <th class="col-plan">Supplier</th>
+                    <th style="width:70px;">Award</th>
+                    <th style="width:40px;"></th>
+                </tr>
+            </thead>
+            <tbody id="newPlanOrderBody">
+                <tr class="data-row plan-row" data-plan-row="1">
+                    <td><span class="plan-row-num">1</span></td>
+                    <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_qty" onchange="calculatePlanAmount(1, 'new')"></td>
+                    <td class="col-plan">
+                        <select class="input-plan" data-field="plan_currency" style="font-size:10px; padding:2px; border:1px solid #ccc; background:white; width:100%;">
+                            <option value="">-</option>
+                            <option value="CNY">CNY</option>
+                            <option value="USD">USD</option>
+                            <option value="SGD">SGD</option>
+                            <option value="MYR">MYR</option>
+                            <option value="EUR">EUR</option>
+                            <option value="JPY">JPY</option>
+                            <option value="AUD">AUD</option>
+                            <option value="GBP">GBP</option>
+                        </select>
+                    </td>
+                    <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_price_foreign" onchange="calculatePlanPriceIDR(1, 'new')"></td>
+                    <td class="col-plan"><input type="date" class="input-plan" data-field="plan_kurs_date"></td>
+                    <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_kurs_idr" onchange="calculatePlanPriceIDR(1, 'new')"></td>
+                    <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_price_idr" onchange="manualOverridePlanPriceIDR(1, 'new')"></td>
+                    <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_price_tiba_nu" readonly tabindex="-1"></td>
+                    <td class="col-plan"><input type="text" class="input-plan" data-field="plan_amount" readonly tabindex="-1"></td>
+                    <td class="col-plan"><input type="text" class="input-plan" data-field="plan_supplier" list="newSupplierList"></td>
+                    <td style="padding:2px;">
+                        <button type="button" class="btn-award-plan" onclick="fillAwardedFromPlan('new', 1)" title="Fill Awarded from this plan">🏆 Award</button>
+                    </td>
+                    <td style="padding:2px;">
+                        <button type="button" class="btn-remove-plan" onclick="removePlanRow('new', 1)" title="Remove" style="display:none;">×</button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <button type="button" class="btn-add-plan" onclick="addPlanRow('new')" title="Add Plan Order Row">+</button>
+</div>
 
-                <!-- GAP SECTION -->
-                <table class="comparison-spreadsheet" style="margin-top: 0; border-top: none;">
-                    <thead>
-                        <tr class="section-header">
-                            <th colspan="2" class="header-gap">GAP (Auto-calculated)</th>
-                        </tr>
-                        <tr class="sub-header">
-                            <th class="col-gap">Price<br>(IDR)</th>
-                            <th class="col-gap">%</th>
-                        </tr>
-                    </thead>
-                    <tbody id="newGapBody">
-                        <tr class="data-row" data-row="1">
-                            <td class="col-gap"><input type="text" class="input-gap" data-field="gap_price" readonly tabindex="-1"></td>
-                            <td class="col-gap"><input type="text" class="input-gap" data-field="gap_percent" readonly tabindex="-1"></td>
-                        </tr>
-                    </tbody>
-                </table>
+<!-- GAP SECTION - PER PLAN ROW -->
+<table class="comparison-spreadsheet" id="newGapTable" style="margin-top:0; border-top:none;">
+    <thead>
+        <tr class="section-header">
+            <th colspan="4" class="header-gap">GAP (Auto-calculated) — Per Plan Order</th>
+        </tr>
+        <tr class="sub-header">
+            <th style="width:36px;">#</th>
+            <th class="col-gap">Price<br>(IDR)</th>
+            <th class="col-gap">%</th>
+            <th class="col-gap">Status</th>
+        </tr>
+    </thead>
+    <tbody id="newGapBody">
+        <tr class="data-row gap-row" data-gap-row="1">
+            <td><span class="gap-row-num">1</span></td>
+            <td class="col-gap"><input type="text" class="input-gap" data-field="gap_price" readonly tabindex="-1"></td>
+            <td class="col-gap"><input type="text" class="input-gap" data-field="gap_percent" readonly tabindex="-1"></td>
+            <td class="col-gap gap-status" style="font-size:11px;">—</td>
+        </tr>
+    </tbody>
+</table>
 
-                <!-- AWARDED SECTION -->
-                <table class="comparison-spreadsheet" style="margin-top: 0; border-top: none;">
-                    <thead>
-                        <tr class="section-header">
-                            <th colspan="6" class="header-awarded">AWARDED (Final Selection)</th>
-                        </tr>
-                        <tr class="sub-header">
-                            <th class="col-awarded">Tgl PO</th>
-                            <th class="col-awarded">Deliv.<br>Schedule</th>
-                            <th class="col-awarded">No PO</th>
-                            <th class="col-awarded">Supplier</th>
-                            <th class="col-awarded">Amount<br>(IDR)</th>
-                            <th class="col-awarded">Keterangan</th>
-                        </tr>
-                    </thead>
-                    <tbody id="newAwardedBody">
-                        <tr class="data-row" data-row="1">
-                            <td class="col-awarded"><input type="date" class="input-awarded" data-field="awarded_po_date"></td>
-                            <td class="col-awarded"><input type="date" class="input-awarded" data-field="awarded_deliv_date"></td>
-                            <td class="col-awarded"><input type="text" class="input-awarded" data-field="awarded_po_number"></td>
-                            <td class="col-awarded"><input type="text" class="input-awarded" data-field="awarded_supplier" list="supplierList"></td>
-                            <td class="col-awarded"><input type="text" inputmode="decimal" class="input-awarded" data-field="awarded_amount"></td>
-                            <td class="col-awarded"><input type="text" class="input-awarded" data-field="awarded_keterangan"></td>
-                        </tr>
-                    </tbody>
-                </table>
+<!-- AWARDED SECTION (Template Original) -->
+<table class="comparison-spreadsheet" style="margin-top: 0; border-top: none;">
+    <thead>
+        <tr class="section-header">
+            <th colspan="6" class="header-awarded">AWARDED (Final Selection)</th>
+        </tr>
+        <tr class="sub-header">
+            <th class="col-awarded">Tgl PO</th>
+            <th class="col-awarded">Deliv.<br>Schedule</th>
+            <th class="col-awarded">No PO</th>
+            <th class="col-awarded">Supplier</th>
+            <th class="col-awarded">Amount<br>(IDR)</th>
+            <th class="col-awarded">Keterangan</th>
+        </tr>
+    </thead>
+    <tbody id="newAwardedBody">
+        <tr class="data-row" data-row="1">
+            <td class="col-awarded"><input type="date" class="input-awarded" data-field="awarded_po_date"></td>
+            <td class="col-awarded"><input type="date" class="input-awarded" data-field="awarded_deliv_date"></td>
+            <td class="col-awarded"><input type="text" class="input-awarded" data-field="awarded_po_number"></td>
+            <td class="col-awarded"><input type="text" class="input-awarded" data-field="awarded_supplier" list="newSupplierList"></td>
+            <td class="col-awarded"><input type="text" inputmode="decimal" class="input-awarded" data-field="awarded_amount"></td>
+            <td class="col-awarded"><input type="text" class="input-awarded" data-field="awarded_keterangan"></td>
+        </tr>
+    </tbody>
+</table>
             </div>
 
             <datalist id="newSupplierList"></datalist>
