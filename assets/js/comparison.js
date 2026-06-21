@@ -12,6 +12,7 @@ let currentEditId = null; // ID comparison yang sedang diedit
 let currentUserRole = ''; // Role user saat ini
 let currentSortField = null;
 let currentSortDirection = 'asc';
+let planRowCounters = { create: 1, new: 1 };
 
 // Ambil role user dari session (set di PHP)
 document.addEventListener('DOMContentLoaded', function() {
@@ -200,102 +201,222 @@ function openCreateComparisonForEdit(data) {
     setTimeout(() => { initIdrFormatters(); }, 100);
 }
 
-function populateNewComparisonForm(data) {
-    const rowNum = 1;
-    const prefix = 'new';
-    const isDraft = data.status === 'draft';
-    
-    setFieldValue(rowNum, 'pr_number', data.pr_number || '', prefix);
-    setFieldValue(rowNum, 'material_code', data.material_code || '', prefix);
-    setFieldValue(rowNum, 'description', data.material || data.description || '', prefix);
-    setFieldValue(rowNum, 'uom', data.uom || 'KG', prefix);
-    setFieldValue(rowNum, 'qty_pr', data.qty_pr || data.qty || 0, prefix);
-    
-    setFieldValue(rowNum, 'last_qty', data.last_qty || 0, prefix);
-    setFieldValue(rowNum, 'last_po_number', data.last_po_number || '', prefix);
-    setFieldValue(rowNum, 'last_po_date', data.last_po_date || '', prefix);
-    const lastCurrencySelect = document.querySelector(`#newComparisonView [data-field="last_currency"]`);
-    if (lastCurrencySelect) lastCurrencySelect.value = data.last_currency || '';
-    setFieldValue(rowNum, 'last_price_foreign', data.last_price_foreign || 0, prefix);
-    setFieldValue(rowNum, 'last_kurs_date', data.last_kurs_date || '', prefix);
-    setFieldValue(rowNum, 'last_kurs_idr', data.last_kurs_idr || 0, prefix);
-    setFieldValue(rowNum, 'last_price_idr', data.last_price_idr || 0, prefix);
-    setFieldValue(rowNum, 'last_price_tiba_nu', data.last_price_tiba_nu || 0, prefix);
-    setFieldValue(rowNum, 'last_amount', data.last_amount || 0, prefix);
-    setFieldValue(rowNum, 'last_supplier', data.last_supplier || data.last_supplier_name || '', prefix);
-    
-    setFieldValue(rowNum, 'plan_qty', data.plan_qty || 0, prefix);
-    const planCurrencySelect = document.querySelector(`#newComparisonView [data-field="plan_currency"]`);
-    if (planCurrencySelect) planCurrencySelect.value = data.plan_currency || '';
-    setFieldValue(rowNum, 'plan_price_foreign', data.plan_price_foreign || 0, prefix);
-    setFieldValue(rowNum, 'plan_kurs_date', data.plan_kurs_date || '', prefix);
-    setFieldValue(rowNum, 'plan_kurs_idr', data.plan_kurs_idr || 0, prefix);
-    setFieldValue(rowNum, 'plan_price_idr', data.plan_price_idr || 0, prefix);
-    setFieldValue(rowNum, 'plan_price_tiba_nu', data.plan_price_tiba_nu || 0, prefix);
-    setFieldValue(rowNum, 'plan_amount', data.plan_amount || 0, prefix);
-    setFieldValue(rowNum, 'plan_supplier', data.plan_supplier || data.plan_supplier_name || '', prefix);
-    
-    setFieldValue(rowNum, 'gap_price', data.gap_price || 0, prefix);
-    setFieldValue(rowNum, 'gap_percent', data.gap_percent || 0, prefix);
-    
-    setFieldValue(rowNum, 'awarded_po_date', data.awarded_po_date || '', prefix);
-    setFieldValue(rowNum, 'awarded_deliv_date', data.awarded_deliv_date || '', prefix);
-    setFieldValue(rowNum, 'awarded_po_number', data.awarded_po_number || data.po_number || '', prefix);
-    setFieldValue(rowNum, 'awarded_supplier', data.awarded_supplier || data.awarded_supplier_name || '', prefix);
-    setFieldValue(rowNum, 'awarded_amount', data.awarded_amount || 0, prefix);
-    setFieldValue(rowNum, 'awarded_keterangan', data.awarded_keterangan || '', prefix);
-    
-    setLastOrderEditable(prefix, isDraft);
-    updateSaveButtonForEdit(prefix, isDraft);
-}
-
 function populateCreateComparisonForm(data) {
-    const rowNum = 1;
     const prefix = 'create';
     const isDraft = data.status === 'draft';
     
-    setFieldValue(rowNum, 'pr_number', data.pr_number || '', prefix);
-    setFieldValue(rowNum, 'material_code', data.material_code || '', prefix);
-    setFieldValue(rowNum, 'description', data.material || data.description || '', prefix);
-    setFieldValue(rowNum, 'uom', data.uom || 'KG', prefix);
-    setFieldValue(rowNum, 'qty_pr', data.qty_pr || data.qty || 0, prefix);
+    // Clear existing plan rows (reset to 1)
+    resetPlanRows(prefix);
     
-    setFieldValue(rowNum, 'last_qty', data.last_qty || 0, prefix);
-    setFieldValue(rowNum, 'last_po_number', data.last_po_number || '', prefix);
-    setFieldValue(rowNum, 'last_po_date', data.last_po_date || '', prefix);
+    // Populate header & last order (row 1)
+    setFieldValue(1, 'pr_number', data.pr_number || '', prefix);
+    setFieldValue(1, 'material_code', data.material_code || '', prefix);
+    setFieldValue(1, 'description', data.description || '', prefix);
+    setFieldValue(1, 'uom', data.uom || 'KG', prefix);
+    setFieldValue(1, 'qty_pr', data.qty_pr || 0, prefix);
+    
+    setFieldValue(1, 'last_qty', data.last_qty || 0, prefix);
+    setFieldValue(1, 'last_po_number', data.last_po_number || '', prefix);
+    setFieldValue(1, 'last_po_date', data.last_po_date || '', prefix);
+    
     const lastCurrencySelect = document.querySelector(`#spreadsheetCreateView [data-field="last_currency"]`);
     if (lastCurrencySelect) lastCurrencySelect.value = data.last_currency || '';
-    setFieldValue(rowNum, 'last_price_foreign', data.last_price_foreign || 0, prefix);
-    setFieldValue(rowNum, 'last_kurs_date', data.last_kurs_date || '', prefix);
-    setFieldValue(rowNum, 'last_kurs_idr', data.last_kurs_idr || 0, prefix);
-    setFieldValue(rowNum, 'last_price_idr', data.last_price_idr || 0, prefix);
-    setFieldValue(rowNum, 'last_price_tiba_nu', data.last_price_tiba_nu || 0, prefix);
-    setFieldValue(rowNum, 'last_amount', data.last_amount || 0, prefix);
-    setFieldValue(rowNum, 'last_supplier', data.last_supplier || data.last_supplier_name || '', prefix);
     
-    setFieldValue(rowNum, 'plan_qty', data.plan_qty || 0, prefix);
-    const planCurrencySelect = document.querySelector(`#spreadsheetCreateView [data-field="plan_currency"]`);
-    if (planCurrencySelect) planCurrencySelect.value = data.plan_currency || '';
-    setFieldValue(rowNum, 'plan_price_foreign', data.plan_price_foreign || 0, prefix);
-    setFieldValue(rowNum, 'plan_kurs_date', data.plan_kurs_date || '', prefix);
-    setFieldValue(rowNum, 'plan_kurs_idr', data.plan_kurs_idr || 0, prefix);
-    setFieldValue(rowNum, 'plan_price_idr', data.plan_price_idr || 0, prefix);
-    setFieldValue(rowNum, 'plan_price_tiba_nu', data.plan_price_tiba_nu || 0, prefix);
-    setFieldValue(rowNum, 'plan_amount', data.plan_amount || 0, prefix);
-    setFieldValue(rowNum, 'plan_supplier', data.plan_supplier || data.plan_supplier_name || '', prefix);
+    setFieldValue(1, 'last_price_foreign', data.last_price_foreign || 0, prefix);
+    setFieldValue(1, 'last_kurs_date', data.last_kurs_date || '', prefix);
+    setFieldValue(1, 'last_kurs_idr', data.last_kurs_idr || 0, prefix);
+    setFieldValue(1, 'last_price_idr', data.last_price_idr || 0, prefix);
+    setFieldValue(1, 'last_price_tiba_nu', data.last_price_tiba_nu || 0, prefix);
+    setFieldValue(1, 'last_amount', data.last_amount || 0, prefix);
+    setFieldValue(1, 'last_supplier', data.last_supplier_name || '', prefix);
     
-    setFieldValue(rowNum, 'gap_price', data.gap_price || 0, prefix);
-    setFieldValue(rowNum, 'gap_percent', data.gap_percent || 0, prefix);
+    // Populate plan rows from Comparison_Plan_Row
+    if (data.plan_rows && data.plan_rows.length > 0) {
+        data.plan_rows.forEach((planRow, index) => {
+            const rowNum = index + 1;
+            
+            // Add row if more than 1
+            if (index > 0) {
+                addPlanRow(prefix);
+            }
+            
+            // Fill plan data
+            const rowElement = document.querySelector(`#${prefix}PlanOrderBody [data-plan-row="${rowNum}"]`);
+            if (rowElement) {
+                const qtyInput = rowElement.querySelector('[data-field="plan_qty"]');
+                const currencySelect = rowElement.querySelector('[data-field="plan_currency"]');
+                const foreignInput = rowElement.querySelector('[data-field="plan_price_foreign"]');
+                const kursDateInput = rowElement.querySelector('[data-field="plan_kurs_date"]');
+                const kursIdrInput = rowElement.querySelector('[data-field="plan_kurs_idr"]');
+                const priceIdrInput = rowElement.querySelector('[data-field="plan_price_idr"]');
+                const tibaNuInput = rowElement.querySelector('[data-field="plan_price_tiba_nu"]');
+                const amountInput = rowElement.querySelector('[data-field="plan_amount"]');
+                const supplierInput = rowElement.querySelector('[data-field="plan_supplier"]');
+                
+                if (qtyInput) qtyInput.value = planRow.plan_qty ? formatIdrNumber(planRow.plan_qty) : '';
+                if (currencySelect) currencySelect.value = planRow.plan_currency || '';
+                if (foreignInput) foreignInput.value = planRow.plan_price_foreign ? formatIdrNumber(planRow.plan_price_foreign) : '';
+                if (kursDateInput) kursDateInput.value = planRow.plan_kurs_date || '';
+                if (kursIdrInput) kursIdrInput.value = planRow.plan_kurs_idr ? formatIdrNumber(planRow.plan_kurs_idr) : '';
+                if (priceIdrInput) priceIdrInput.value = planRow.plan_price_idr ? formatIdrNumber(planRow.plan_price_idr) : '';
+                if (tibaNuInput) tibaNuInput.value = planRow.plan_price_tiba_nu ? formatIdrNumber(planRow.plan_price_tiba_nu) : '';
+                if (amountInput) amountInput.value = planRow.plan_amount ? formatIdrNumber(planRow.plan_amount) : '';
+                if (supplierInput) supplierInput.value = planRow.plan_supplier_name || '';
+                
+                // Mark awarded
+                if (planRow.is_awarded == 1) {
+                    fillAwardedFromPlan(prefix, rowNum);
+                }
+            }
+            
+            // Calculate gap
+            calculatePlanGap(rowNum, prefix);
+        });
+    }
     
-    setFieldValue(rowNum, 'awarded_po_date', data.awarded_po_date || '', prefix);
-    setFieldValue(rowNum, 'awarded_deliv_date', data.awarded_deliv_date || '', prefix);
-    setFieldValue(rowNum, 'awarded_po_number', data.awarded_po_number || data.po_number || '', prefix);
-    setFieldValue(rowNum, 'awarded_supplier', data.awarded_supplier || data.awarded_supplier_name || '', prefix);
-    setFieldValue(rowNum, 'awarded_amount', data.awarded_amount || 0, prefix);
-    setFieldValue(rowNum, 'awarded_keterangan', data.awarded_keterangan || '', prefix);
+    // Populate awarded
+    setFieldValue(1, 'awarded_po_date', data.awarded_po_date || '', prefix);
+    setFieldValue(1, 'awarded_deliv_date', data.awarded_deliv_date || '', prefix);
+    setFieldValue(1, 'awarded_po_number', data.awarded_po_number || '', prefix);
+    setFieldValue(1, 'awarded_supplier', data.awarded_supplier_name || '', prefix);
+    setFieldValue(1, 'awarded_amount', data.awarded_amount || 0, prefix);
+    setFieldValue(1, 'awarded_keterangan', data.awarded_keterangan || '', prefix);
     
     setLastOrderEditable(prefix, isDraft);
     updateSaveButtonForEdit(prefix, isDraft);
+    
+    // Re-init formatters
+    setTimeout(() => { initIdrFormatters(); }, 100);
+}
+
+function populateNewComparisonForm(data) {
+    const prefix = 'new';
+    const isDraft = data.status === 'draft';
+    
+    // Clear existing plan rows
+    resetPlanRows(prefix);
+    
+    // Populate header & last order
+    setFieldValue(1, 'pr_number', data.pr_number || '', prefix);
+    setFieldValue(1, 'material_code', data.material_code || '', prefix);
+    setFieldValue(1, 'description', data.description || '', prefix);
+    setFieldValue(1, 'uom', data.uom || 'KG', prefix);
+    setFieldValue(1, 'qty_pr', data.qty_pr || 0, prefix);
+    
+    setFieldValue(1, 'last_qty', data.last_qty || 0, prefix);
+    setFieldValue(1, 'last_po_number', data.last_po_number || '', prefix);
+    setFieldValue(1, 'last_po_date', data.last_po_date || '', prefix);
+    
+    const lastCurrencySelect = document.querySelector(`#newComparisonView [data-field="last_currency"]`);
+    if (lastCurrencySelect) lastCurrencySelect.value = data.last_currency || '';
+    
+    setFieldValue(1, 'last_price_foreign', data.last_price_foreign || 0, prefix);
+    setFieldValue(1, 'last_kurs_date', data.last_kurs_date || '', prefix);
+    setFieldValue(1, 'last_kurs_idr', data.last_kurs_idr || 0, prefix);
+    setFieldValue(1, 'last_price_idr', data.last_price_idr || 0, prefix);
+    setFieldValue(1, 'last_price_tiba_nu', data.last_price_tiba_nu || 0, prefix);
+    setFieldValue(1, 'last_amount', data.last_amount || 0, prefix);
+    setFieldValue(1, 'last_supplier', data.last_supplier_name || '', prefix);
+    
+    // Populate plan rows
+    if (data.plan_rows && data.plan_rows.length > 0) {
+        data.plan_rows.forEach((planRow, index) => {
+            const rowNum = index + 1;
+            
+            if (index > 0) {
+                addPlanRow(prefix);
+            }
+            
+            const rowElement = document.querySelector(`#${prefix}PlanOrderBody [data-plan-row="${rowNum}"]`);
+            if (rowElement) {
+                const qtyInput = rowElement.querySelector('[data-field="plan_qty"]');
+                const currencySelect = rowElement.querySelector('[data-field="plan_currency"]');
+                const foreignInput = rowElement.querySelector('[data-field="plan_price_foreign"]');
+                const kursDateInput = rowElement.querySelector('[data-field="plan_kurs_date"]');
+                const kursIdrInput = rowElement.querySelector('[data-field="plan_kurs_idr"]');
+                const priceIdrInput = rowElement.querySelector('[data-field="plan_price_idr"]');
+                const tibaNuInput = rowElement.querySelector('[data-field="plan_price_tiba_nu"]');
+                const amountInput = rowElement.querySelector('[data-field="plan_amount"]');
+                const supplierInput = rowElement.querySelector('[data-field="plan_supplier"]');
+                
+                if (qtyInput) qtyInput.value = planRow.plan_qty ? formatIdrNumber(planRow.plan_qty) : '';
+                if (currencySelect) currencySelect.value = planRow.plan_currency || '';
+                if (foreignInput) foreignInput.value = planRow.plan_price_foreign ? formatIdrNumber(planRow.plan_price_foreign) : '';
+                if (kursDateInput) kursDateInput.value = planRow.plan_kurs_date || '';
+                if (kursIdrInput) kursIdrInput.value = planRow.plan_kurs_idr ? formatIdrNumber(planRow.plan_kurs_idr) : '';
+                if (priceIdrInput) priceIdrInput.value = planRow.plan_price_idr ? formatIdrNumber(planRow.plan_price_idr) : '';
+                if (tibaNuInput) tibaNuInput.value = planRow.plan_price_tiba_nu ? formatIdrNumber(planRow.plan_price_tiba_nu) : '';
+                if (amountInput) amountInput.value = planRow.plan_amount ? formatIdrNumber(planRow.plan_amount) : '';
+                if (supplierInput) supplierInput.value = planRow.plan_supplier_name || '';
+                
+                if (planRow.is_awarded == 1) {
+                    fillAwardedFromPlan(prefix, rowNum);
+                }
+            }
+            
+            calculatePlanGap(rowNum, prefix);
+        });
+    }
+    
+    // Populate awarded
+    setFieldValue(1, 'awarded_po_date', data.awarded_po_date || '', prefix);
+    setFieldValue(1, 'awarded_deliv_date', data.awarded_deliv_date || '', prefix);
+    setFieldValue(1, 'awarded_po_number', data.awarded_po_number || '', prefix);
+    setFieldValue(1, 'awarded_supplier', data.awarded_supplier_name || '', prefix);
+    setFieldValue(1, 'awarded_amount', data.awarded_amount || 0, prefix);
+    setFieldValue(1, 'awarded_keterangan', data.awarded_keterangan || '', prefix);
+    
+    setLastOrderEditable(prefix, isDraft);
+    updateSaveButtonForEdit(prefix, isDraft);
+    
+    setTimeout(() => { initIdrFormatters(); }, 100);
+}
+
+/**
+ * Reset plan rows ke 1 row kosong
+ */
+function resetPlanRows(mode) {
+    const planBody = document.getElementById(`${mode}PlanOrderBody`);
+    const gapBody = document.getElementById(`${mode}GapBody`);
+    
+    // Remove all except first
+    const planRows = planBody.querySelectorAll('.plan-row');
+    planRows.forEach((row, idx) => {
+        if (idx > 0) row.remove();
+    });
+    
+    const gapRows = gapBody.querySelectorAll('.gap-row');
+    gapRows.forEach((row, idx) => {
+        if (idx > 0) row.remove();
+    });
+    
+    // Clear first row
+    const firstPlanRow = planBody.querySelector('.plan-row');
+    if (firstPlanRow) {
+        firstPlanRow.querySelectorAll('input').forEach(input => {
+            if (!input.readOnly && input.getAttribute('data-field') !== 'plan_price_tiba_nu' && input.getAttribute('data-field') !== 'plan_amount') {
+                input.value = '';
+            }
+        });
+        const currencySelect = firstPlanRow.querySelector('[data-field="plan_currency"]');
+        if (currencySelect) currencySelect.value = '';
+        firstPlanRow.classList.remove('awarded-row');
+        const awardBtn = firstPlanRow.querySelector('.btn-award-plan');
+        if (awardBtn) {
+            awardBtn.textContent = '🏆 Award';
+            awardBtn.classList.remove('awarded');
+        }
+    }
+    
+    // Clear first gap row
+    const firstGapRow = gapBody.querySelector('.gap-row');
+    if (firstGapRow) {
+        firstGapRow.querySelectorAll('input').forEach(input => input.value = '');
+        firstGapRow.querySelector('.gap-status').innerHTML = '—';
+    }
+    
+    planRowCounters[mode] = 1;
+    updateRemoveButtons(mode);
 }
 
 function updateSaveButtonForEdit(prefix, isDraft = false) {
@@ -412,6 +533,43 @@ function updateComparison(prefix) {
         highlightInvalidFields(prefix, validation.missing);
         showToast('Field berikut wajib diisi untuk status FINAL: ' + validation.missing.join(', '), 'error');
         return; // BLOCK, tidak bisa update final kalau ada yang kosong
+    }
+    
+    clearFieldHighlights(prefix);
+    
+    const payload = collectFormData(prefix);
+    payload.comparison_id = currentEditId;
+    payload.status = 'final';
+
+    fetch('api/update_comparison.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Comparison updated successfully!');
+            backToHistory();
+            loadComparisonHistory();
+        } else {
+            showToast('Error: ' + (data.error || 'Unknown error'), 'error');
+        }
+    })
+    .catch(err => {
+        console.error('Error updating:', err);
+        showToast('Server error saat update', 'error');
+    });
+}
+
+function updateComparison(prefix) {
+    if (!currentEditId) return;
+    
+    const validation = validateRequiredFields(prefix);
+    if (!validation.valid) {
+        highlightInvalidFields(prefix, validation.missing);
+        showToast('Field berikut wajib diisi untuk status FINAL: ' + validation.missing.join(', '), 'error');
+        return;
     }
     
     clearFieldHighlights(prefix);
@@ -750,78 +908,149 @@ function calculateLastAmount(rowNum, prefix) {
 }
 
 function calculatePlanPriceIDR(rowNum, prefix) {
-    const foreign = getFieldValue(rowNum, 'plan_price_foreign', prefix);
-    const kurs = getFieldValue(rowNum, 'plan_kurs_idr', prefix);
-    const priceIdrInput = document.querySelector(`#${prefix === 'new' ? 'newComparisonView' : 'spreadsheetCreateView'} [data-row="${rowNum}"] [data-field="plan_price_idr"]`);
-
+    let planRow;
+    if (prefix === 'new') {
+        planRow = document.querySelector(`#newPlanOrderBody [data-plan-row="${rowNum}"]`);
+    } else {
+        planRow = document.querySelector(`#createPlanOrderBody [data-plan-row="${rowNum}"]`);
+    }
+    
+    if (!planRow) return;
+    
+    const foreignInput = planRow.querySelector('[data-field="plan_price_foreign"]');
+    const kursInput = planRow.querySelector('[data-field="plan_kurs_idr"]');
+    const priceIdrInput = planRow.querySelector('[data-field="plan_price_idr"]');
+    const tibaNuInput = planRow.querySelector('[data-field="plan_price_tiba_nu"]');
+    const qtyInput = planRow.querySelector('[data-field="plan_qty"]');
+    const amountInput = planRow.querySelector('[data-field="plan_amount"]');
+    
+    const foreign = parseIdrNumber(foreignInput?.value || '0');
+    const kurs = parseIdrNumber(kursInput?.value || '0');
+    const qty = parseIdrNumber(qtyInput?.value || '0');
+    
     let priceIdr = 0;
+    
     if (foreign > 0) {
+        // Ada foreign price, calculate IDR = foreign × kurs
         priceIdr = foreign * (kurs > 0 ? kurs : 1);
         if (priceIdrInput) {
             priceIdrInput.value = formatIdrNumber(priceIdr);
             priceIdrInput.dataset.auto = "true";
         }
     } else {
+        // Tidak ada foreign price, ambil Price IDR manual
+        priceIdr = parseIdrNumber(priceIdrInput?.value || '0');
         if (priceIdrInput) priceIdrInput.dataset.auto = "false";
-        priceIdr = getFieldValue(rowNum, 'plan_price_idr', prefix);
     }
-
-    const tibaNuInput = document.querySelector(`#${prefix === 'new' ? 'newComparisonView' : 'spreadsheetCreateView'} [data-row="${rowNum}"] [data-field="plan_price_tiba_nu"]`);
+    
+    // TIBA DI NU = Price IDR
     if (tibaNuInput) {
         tibaNuInput.value = formatIdrNumber(priceIdr);
     }
-
-    const qty = getFieldValue(rowNum, 'plan_qty', prefix);
-    const amount = qty * priceIdr;
-    setFieldValue(rowNum, 'plan_amount', amount, prefix);
-
-    calculateGap(rowNum, prefix);
+    
+    // Amount = QTY × TIBA DI NU
+    if (amountInput) {
+        const amount = qty * priceIdr;
+        amountInput.value = formatIdrNumber(amount);
+    }
+    
+    // Recalculate gap
+    calculatePlanGap(rowNum, prefix);
 }
 
 function manualOverridePlanPriceIDR(rowNum, prefix) {
-    const foreign = getFieldValue(rowNum, 'plan_price_foreign', prefix);
-    const priceIdrInput = document.querySelector(`#${prefix === 'new' ? 'newComparisonView' : 'spreadsheetCreateView'} [data-row="${rowNum}"] [data-field="plan_price_idr"]`);
-
-    if (foreign > 0) {
-        const kurs = getFieldValue(rowNum, 'plan_kurs_idr', prefix);
-        const idr = foreign * (kurs > 0 ? kurs : 1);
-        if (priceIdrInput) priceIdrInput.value = formatIdrNumber(idr);
-        alert('Price IDR auto-calculated from Foreign Price x Kurs. Clear foreign price to input IDR manually.');
+    let planRow;
+    if (prefix === 'new') {
+        planRow = document.querySelector(`#newPlanOrderBody [data-plan-row="${rowNum}"]`);
+    } else {
+        planRow = document.querySelector(`#createPlanOrderBody [data-plan-row="${rowNum}"]`);
     }
     
+    if (!planRow) return;
+    
+    const foreignInput = planRow.querySelector('[data-field="plan_price_foreign"]');
+    const priceIdrInput = planRow.querySelector('[data-field="plan_price_idr"]');
+    
+    if (foreignInput && parseFloat(foreignInput.value) > 0) {
+        const kursInput = planRow.querySelector('[data-field="plan_kurs_idr"]');
+        const kurs = parseIdrNumber(kursInput?.value || '0');
+        const foreign = parseIdrNumber(foreignInput.value);
+        const idr = foreign * (kurs > 0 ? kurs : 1);
+        if (priceIdrInput) priceIdrInput.value = formatIdrNumber(idr);
+        alert('Price IDR auto-calculated from Foreign Price × Kurs. Clear foreign price to input IDR manually.');
+    }
+    
+    // Re-run full calculation
     calculatePlanPriceIDR(rowNum, prefix);
 }
 
 function calculatePlanAmount(rowNum, prefix) {
-    calculatePlanPriceIDR(rowNum, prefix);
-}
-
-function calculateGap(rowNum, prefix) {
-    const lastPrice = getFieldValue(rowNum, 'last_price_idr', prefix);
-    const planPrice = getFieldValue(rowNum, 'plan_price_idr', prefix);
+    const containerId = prefix === 'new' ? 'newComparisonView' : 'spreadsheetCreateView';
     
-    if (lastPrice === 0 && planPrice === 0) {
-        setFieldValue(rowNum, 'gap_price', '', prefix);
-        setFieldValue(rowNum, 'gap_percent', '', prefix);
+    let planRow;
+    if (prefix === 'new') {
+        planRow = document.querySelector(`#newPlanOrderBody [data-plan-row="${rowNum}"]`);
+    } else {
+        planRow = document.querySelector(`#createPlanOrderBody [data-plan-row="${rowNum}"]`);
+    }
+    
+    if (!planRow) {
+        // Fallback ke cara lama
+        const qty = getFieldValue(rowNum, 'plan_qty', prefix);
+        const tibaNu = getFieldValue(rowNum, 'plan_price_tiba_nu', prefix);
+        const amount = qty * tibaNu;
+        setFieldValue(rowNum, 'plan_amount', amount, prefix);
+        calculatePlanGap(rowNum, prefix);
         return;
     }
     
-    const gapPrice = planPrice - lastPrice;
+    // Cara baru
+    const qtyInput = planRow.querySelector('[data-field="plan_qty"]');
+    const tibaNuInput = planRow.querySelector('[data-field="plan_price_tiba_nu"]');
+    const amountInput = planRow.querySelector('[data-field="plan_amount"]');
     
-    // Batasi gap_percent agar tidak melebihi 999.99 (safe untuk decimal(15,2))
-    let gapPercent = 0;
-    if (lastPrice > 0) {
-        gapPercent = (gapPrice / lastPrice) * 100;
-    } else if (planPrice > 0) {
-        // Jika last_price = 0 tapi plan_price > 0, gap = 100% (baru beli)
-        gapPercent = 100;
+    const qty = parseIdrNumber(qtyInput?.value || '0');
+    const tibaNu = parseIdrNumber(tibaNuInput?.value || '0');
+    const amount = qty * tibaNu;
+    
+    if (amountInput) {
+        amountInput.value = formatIdrNumber(amount);
     }
     
-    // Clamp ke range yang aman untuk database
-    gapPercent = Math.max(-999.99, Math.min(999.99, gapPercent));
+    calculatePlanGap(rowNum, prefix);
+}
+
+function calculateGap(rowNum, prefix) {
+    const lastPrice = getFieldValue(1, 'last_price_idr', prefix); // Last order selalu row 1
+    const planPriceInput = document.querySelector(`#${prefix}PlanOrderBody [data-plan-row="${rowNum}"] [data-field="plan_price_idr"]`);
+    const planPrice = planPriceInput ? parseIdrNumber(planPriceInput.value) : 0;
     
-    setFieldValue(rowNum, 'gap_price', gapPrice, prefix);
-    setFieldValue(rowNum, 'gap_percent', gapPercent.toFixed(2), prefix);
+    const gapRow = document.querySelector(`#${prefix}GapBody [data-gap-row="${rowNum}"]`);
+    if (!gapRow) return;
+    
+    const gapPriceInput = gapRow.querySelector('[data-field="gap_price"]');
+    const gapPercentInput = gapRow.querySelector('[data-field="gap_percent"]');
+    const gapStatus = gapRow.querySelector('.gap-status');
+    
+    if (lastPrice > 0 && planPrice > 0) {
+        const gapPrice = planPrice - lastPrice;
+        const gapPercent = lastPrice > 0 ? ((gapPrice / lastPrice) * 100).toFixed(2) : 0;
+        
+        gapPriceInput.value = formatIdrNumber(gapPrice);
+        gapPercentInput.value = gapPercent + '%';
+        
+        if (gapPrice < 0) {
+            gapStatus.innerHTML = '<span class="gap-status-cheaper">▼ CHEAPER</span>';
+        } else if (gapPrice > 0) {
+            gapStatus.innerHTML = '<span class="gap-status-expensive">▲ MORE EXPENSIVE</span>';
+        } else {
+            gapStatus.innerHTML = '<span class="gap-status-same">— SAME</span>';
+        }
+    } else {
+        gapPriceInput.value = '';
+        gapPercentInput.value = '';
+        gapStatus.innerHTML = '—';
+    }
 }
 
 // ==================== HELPER FUNCTIONS ====================
@@ -958,11 +1187,38 @@ function saveComparisonData(status, prefix) {
 function collectFormData(prefix) {
     const containerId = prefix === 'new' ? 'newComparisonView' : 'spreadsheetCreateView';
     
-    // Helper untuk ambil nilai select
-    const getSelectValue = (field) => {
-        const select = document.querySelector(`#${containerId} [data-field="${field}"]`);
+    const getSelectValue = (field, context = document) => {
+        const select = context.querySelector(`[data-field="${field}"]`);
         return select ? select.value : '';
     };
+    
+    // Collect multiple plan rows
+    const planRows = [];
+    let awardedPlanRow = null;
+    
+    document.querySelectorAll(`#${prefix}PlanOrderBody .plan-row`).forEach((row, idx) => {
+        const rowNum = row.getAttribute('data-plan-row');
+        const gapRow = document.querySelector(`#${prefix}GapBody [data-gap-row="${rowNum}"]`);
+        
+        // Check if this row is awarded
+        if (row.classList.contains('awarded-row')) {
+            awardedPlanRow = idx + 1;
+        }
+        
+        planRows.push({
+            plan_qty: parseIdrNumber(row.querySelector('[data-field="plan_qty"]')?.value || 0),
+            plan_currency: row.querySelector('[data-field="plan_currency"]')?.value || '',
+            plan_price_foreign: parseIdrNumber(row.querySelector('[data-field="plan_price_foreign"]')?.value || 0),
+            plan_kurs_date: row.querySelector('[data-field="plan_kurs_date"]')?.value || '',
+            plan_kurs_idr: parseIdrNumber(row.querySelector('[data-field="plan_kurs_idr"]')?.value || 0),
+            plan_price_idr: parseIdrNumber(row.querySelector('[data-field="plan_price_idr"]')?.value || 0),
+            plan_price_tiba_nu: parseIdrNumber(row.querySelector('[data-field="plan_price_tiba_nu"]')?.value || 0),
+            plan_amount: parseIdrNumber(row.querySelector('[data-field="plan_amount"]')?.value || 0),
+            plan_supplier: row.querySelector('[data-field="plan_supplier"]')?.value || '',
+            gap_price: parseIdrNumber(gapRow?.querySelector('[data-field="gap_price"]')?.value || 0),
+            gap_percent: Math.max(-999.99, Math.min(999.99, parseIdrNumber(gapRow?.querySelector('[data-field="gap_percent"]')?.value?.replace('%', '') || 0)))
+        });
+    });
     
     return {
         pr_number: document.querySelector(`#${containerId} [data-field="pr_number"]`).value,
@@ -975,7 +1231,7 @@ function collectFormData(prefix) {
         last_po_number: document.querySelector(`#${containerId} [data-field="last_po_number"]`).value,
         last_po_date: getFieldValueSafe(1, 'last_po_date', prefix),
         last_price_foreign: getFieldValue(1, 'last_price_foreign', prefix),
-        last_currency: getSelectValue('last_currency'),  // TAMBAH INI
+        last_currency: getSelectValue('last_currency'),
         last_kurs_date: getFieldValueSafe(1, 'last_kurs_date', prefix),
         last_kurs_idr: getFieldValue(1, 'last_kurs_idr', prefix),
         last_price_idr: getFieldValue(1, 'last_price_idr', prefix),
@@ -983,18 +1239,8 @@ function collectFormData(prefix) {
         last_amount: getFieldValue(1, 'last_amount', prefix),
         last_supplier: document.querySelector(`#${containerId} [data-field="last_supplier"]`).value,
 
-        plan_qty: getFieldValue(1, 'plan_qty', prefix),
-        plan_price_foreign: getFieldValue(1, 'plan_price_foreign', prefix),
-        plan_currency: getSelectValue('plan_currency'),  // TAMBAH INI
-        plan_kurs_date: getFieldValueSafe(1, 'plan_kurs_date', prefix),
-        plan_kurs_idr: getFieldValue(1, 'plan_kurs_idr', prefix),
-        plan_price_idr: getFieldValue(1, 'plan_price_idr', prefix),
-        plan_price_tiba_nu: getFieldValue(1, 'plan_price_tiba_nu', prefix),
-        plan_amount: getFieldValue(1, 'plan_amount', prefix),
-        plan_supplier: document.querySelector(`#${containerId} [data-field="plan_supplier"]`).value,
-
-        gap_price: getFieldValue(1, 'gap_price', prefix),
-        gap_percent: getFieldValue(1, 'gap_percent', prefix),
+        plan_rows: planRows,
+        awarded_plan_row: awardedPlanRow,
 
         awarded_po_date: getFieldValueSafe(1, 'awarded_po_date', prefix),
         awarded_deliv_date: getFieldValueSafe(1, 'awarded_deliv_date', prefix),
@@ -1003,39 +1249,6 @@ function collectFormData(prefix) {
         awarded_amount: getFieldValue(1, 'awarded_amount', prefix),
         awarded_keterangan: document.querySelector(`#${containerId} [data-field="awarded_keterangan"]`).value
     };
-}
-
-// ==================== AUTOCOMPLETE ====================
-
-function initCreateViewAutocomplete() {
-    const materialInput = document.getElementById('createMaterialSearch');
-    const supplierInput = document.getElementById('createSupplierSearch');
-
-    materialInput.addEventListener('input', debounce(function() {
-        if (this.value.length < 2) return;
-        fetch(`api/autocomplete.php?type=material&q=${encodeURIComponent(this.value)}`)
-            .then(res => res.json())
-            .then(data => {
-                const list = document.getElementById('createMaterialSuggestions');
-                list.innerHTML = data.map(item => `
-                    <div onclick="selectCreateMaterial('${item.value}')">${item.label}</div>
-                `).join('');
-                list.style.display = 'block';
-            });
-    }, 300));
-
-    supplierInput.addEventListener('input', debounce(function() {
-        if (this.value.length < 2) return;
-        fetch(`api/autocomplete.php?type=supplier&q=${encodeURIComponent(this.value)}`)
-            .then(res => res.json())
-            .then(data => {
-                const list = document.getElementById('createSupplierSuggestions');
-                list.innerHTML = data.map(item => `
-                    <div onclick="selectCreateSupplier('${item.value}')">${item.label}</div>
-                `).join('');
-                list.style.display = 'block';
-            });
-    }, 300));
 }
 
 function selectCreateMaterial(value) {
@@ -1101,12 +1314,14 @@ function renderComparisonTable(data) {
         return;
     }
     
-    // HAPUS BAGIAN INI (sudah ada di HTML):
-    // const thead = document.querySelector('#comparisonTable thead tr');
-    // if (thead && !thead.querySelector('th.status-col')) { ... }
-    
     tbody.innerHTML = data.map(row => {
         const deleteBtn = `<button class="btn btn-small" style="background:#dc3545;color:white;margin-left:5px;" onclick="deleteComparison(${row.comparison_id})">Delete</button>`;
+        
+        // Badge jumlah plan rows
+        let planBadge = '';
+        if (row.plan_count > 1) {
+            planBadge = ` <span style="background:#4a90e2;color:white;padding:1px 6px;border-radius:3px;font-size:10px;">${row.plan_count} plans</span>`;
+        }
         
         return `
         <tr>
@@ -1120,7 +1335,7 @@ function renderComparisonTable(data) {
             <td>${row.po_number || '-'}</td>
             <td>${formatDate(row.po_date)}</td>
             <td>${formatDate(row.table_created_date)}</td>
-            <td>${row.material || row.material_group || row.material_code || '-'}</td>
+            <td>${row.material || row.material_group || row.material_code || '-'}${planBadge}</td>
             <td>${row.plan_qty != null ? formatIdrNumber(row.plan_qty) : formatIdrNumber(row.qty || 0)}</td>
             <td>${row.price ? 'Rp ' + formatIdrNumber(row.price) : '-'}</td>
             <td>${row.amount ? 'Rp ' + formatIdrNumber(row.amount) : '-'}</td>
@@ -1175,47 +1390,102 @@ function saveComparisonEdit(id) {
 // ==================== GENERATE SAME AS LAST ORDER ====================
 
 function generateSameAsLastOrder() {
-    const rowNum = 1;
     const prefix = 'create';
+    const planRows = document.querySelectorAll(`#${prefix}PlanOrderBody .plan-row`);
+    
+    // Data dari Last Order
+    const lastQty = getFieldValue(1, 'last_qty', prefix);
+    const lastPriceForeign = getFieldValue(1, 'last_price_foreign', prefix);
+    const lastCurrency = document.querySelector(`#spreadsheetCreateView [data-field="last_currency"]`)?.value || '';
+    const lastKursDate = getFieldValueSafe(1, 'last_kurs_date', prefix);
+    const lastKursIdr = getFieldValue(1, 'last_kurs_idr', prefix);
+    const lastPriceIdr = getFieldValue(1, 'last_price_idr', prefix);
+    const lastPriceTibaNu = getFieldValue(1, 'last_price_tiba_nu', prefix);
+    const lastAmount = getFieldValue(1, 'last_amount', prefix);
+    const lastSupplier = document.querySelector(`#spreadsheetCreateView [data-row="1"] [data-field="last_supplier"]`)?.value || '';
 
-    const lastQty = getFieldValue(rowNum, 'last_qty', prefix);
-    const lastPriceForeign = getFieldValue(rowNum, 'last_price_foreign', prefix);
-    const lastCurrency = document.querySelector(`#spreadsheetCreateView [data-field="last_currency"]`)?.value || '';  // TAMBAH
-    const lastKursDate = getFieldValueSafe(rowNum, 'last_kurs_date', prefix);
-    const lastKursIdr = getFieldValue(rowNum, 'last_kurs_idr', prefix);
-    const lastPriceIdr = getFieldValue(rowNum, 'last_price_idr', prefix);
-    const lastPriceTibaNu = getFieldValue(rowNum, 'last_price_tiba_nu', prefix);
-    const lastAmount = getFieldValue(rowNum, 'last_amount', prefix);
-    const lastSupplier = document.querySelector(`#spreadsheetCreateView [data-row="${rowNum}"] [data-field="last_supplier"]`)?.value || '';
-
-    if (!lastQty && !lastPriceIdr && !lastPriceTibaNu) {
+    if (!lastQty && !lastPriceIdr) {
         alert('Last Order is empty. Please fill Last Order first or select from historical data.');
         return;
     }
 
-    setFieldValue(rowNum, 'plan_qty', lastQty || '', prefix);
-    setFieldValue(rowNum, 'plan_price_foreign', lastPriceForeign || '', prefix);
-    const planCurrencySelect = document.querySelector(`#spreadsheetCreateView [data-field="plan_currency"]`);
-    if (planCurrencySelect) planCurrencySelect.value = lastCurrency;
+    // Generate ke SEMUA plan rows yang ada
+    planRows.forEach(row => {
+        const rowNum = row.getAttribute('data-plan-row');
+        
+        // QTY selalu diisi dari Last Order QTY
+        const qtyInput = row.querySelector('[data-field="plan_qty"]');
+        if (qtyInput) qtyInput.value = lastQty ? formatIdrNumber(lastQty) : '';
+        
+        // Jika Last Order punya Foreign Price, copy semua currency data
+        if (lastPriceForeign > 0 && lastCurrency) {
+            const foreignInput = row.querySelector('[data-field="plan_price_foreign"]');
+            const currencySelect = row.querySelector('[data-field="plan_currency"]');
+            const kursDateInput = row.querySelector('[data-field="plan_kurs_date"]');
+            const kursIdrInput = row.querySelector('[data-field="plan_kurs_idr"]');
+            
+            if (foreignInput) foreignInput.value = formatIdrNumber(lastPriceForeign);
+            if (currencySelect) currencySelect.value = lastCurrency;
+            if (kursDateInput) kursDateInput.value = lastKursDate || '';
+            if (kursIdrInput) kursIdrInput.value = lastKursIdr ? formatIdrNumber(lastKursIdr) : '';
+            
+            // Price IDR auto-calculate dari Foreign × Kurs
+            const priceIdrInput = row.querySelector('[data-field="plan_price_idr"]');
+            if (priceIdrInput) {
+                const calculatedIdr = lastPriceForeign * (lastKursIdr > 0 ? lastKursIdr : 1);
+                priceIdrInput.value = formatIdrNumber(calculatedIdr);
+                priceIdrInput.dataset.auto = "true";
+            }
+            
+            // TIBA DI NU = Price IDR
+            const tibaNuInput = row.querySelector('[data-field="plan_price_tiba_nu"]');
+            if (tibaNuInput) {
+                const calculatedIdr = lastPriceForeign * (lastKursIdr > 0 ? lastKursIdr : 1);
+                tibaNuInput.value = formatIdrNumber(calculatedIdr);
+            }
+            
+        } else {
+            // Last Order hanya punya Price IDR (tanpa foreign), copy langsung
+            const foreignInput = row.querySelector('[data-field="plan_price_foreign"]');
+            const currencySelect = row.querySelector('[data-field="plan_currency"]');
+            const kursDateInput = row.querySelector('[data-field="plan_kurs_date"]');
+            const kursIdrInput = row.querySelector('[data-field="plan_kurs_idr"]');
+            const priceIdrInput = row.querySelector('[data-field="plan_price_idr"]');
+            const tibaNuInput = row.querySelector('[data-field="plan_price_tiba_nu"]');
+            
+            if (foreignInput) foreignInput.value = '';
+            if (currencySelect) currencySelect.value = '';
+            if (kursDateInput) kursDateInput.value = '';
+            if (kursIdrInput) kursIdrInput.value = '';
+            
+            if (priceIdrInput) {
+                priceIdrInput.value = lastPriceIdr ? formatIdrNumber(lastPriceIdr) : '';
+                priceIdrInput.dataset.auto = "false"; // Manual, bukan dari foreign
+            }
+            if (tibaNuInput) {
+                tibaNuInput.value = lastPriceTibaNu ? formatIdrNumber(lastPriceTibaNu) : (lastPriceIdr ? formatIdrNumber(lastPriceIdr) : '');
+            }
+        }
+        
+        // Amount = QTY × TIBA DI NU
+        const amountInput = row.querySelector('[data-field="plan_amount"]');
+        if (amountInput) {
+            const qty = lastQty || 0;
+            const tibaNu = getFieldValue(rowNum, 'plan_price_tiba_nu', prefix) || lastPriceTibaNu || lastPriceIdr || 0;
+            const amount = qty * tibaNu;
+            amountInput.value = amount ? formatIdrNumber(amount) : '';
+        }
+        
+        // Supplier
+        const supplierInput = row.querySelector('[data-field="plan_supplier"]');
+        if (supplierInput) supplierInput.value = lastSupplier;
+        
+        // Recalculate gap untuk row ini
+        calculatePlanGap(rowNum, prefix);
+    });
     
-    setFieldValue(rowNum, 'plan_kurs_date', lastKursDate || '', prefix);
-    setFieldValue(rowNum, 'plan_kurs_idr', lastKursIdr || '', prefix);
-    setFieldValue(rowNum, 'plan_price_idr', lastPriceIdr || '', prefix);
-    setFieldValue(rowNum, 'plan_price_tiba_nu', lastPriceTibaNu || '', prefix);
-    setFieldValue(rowNum, 'plan_amount', lastAmount || '', prefix);
-    setFieldValue(rowNum, 'plan_supplier', lastSupplier, prefix);
-
-    const planPriceIdrInput = document.querySelector(`#spreadsheetCreateView [data-row="${rowNum}"] [data-field="plan_price_idr"]`);
-    const planPriceForeignInput = document.querySelector(`#spreadsheetCreateView [data-row="${rowNum}"] [data-field="plan_price_foreign"]`);
-
-    if (planPriceForeignInput && parseFloat(planPriceForeignInput.value) > 0) {
-        if (planPriceIdrInput) planPriceIdrInput.dataset.auto = "true";
-    } else {
-        if (planPriceIdrInput) planPriceIdrInput.dataset.auto = "false";
-    }
-
-    calculateGap(rowNum, 'create');
-    showToast('Plan Order filled successfully from Last Order data!');
+    highlightBestPrice(prefix);
+    showToast(`Plan Order filled successfully for ${planRows.length} row(s) from Last Order data!`);
 }
 
 // ==================== CLEAR TABLE ====================
@@ -1755,4 +2025,263 @@ saveComparisonData = function(status, prefix) {
         console.error('Error saving:', err);
         showToast('Server error saat save', 'error');
     });
+};
+
+// ============================================
+// MULTIPLE PLAN ROWS MANAGEMENT
+// ============================================
+
+/**
+ * Add new Plan Order row
+ */
+function addPlanRow(mode) {
+    const counter = ++planRowCounters[mode];
+    const planBody = document.getElementById(`${mode}PlanOrderBody`);
+    const gapBody = document.getElementById(`${mode}GapBody`);
+    const supplierListId = mode === 'new' ? 'newSupplierList' : 'supplierList';
+    
+    // Plan Row
+    const planRow = document.createElement('tr');
+    planRow.className = 'data-row plan-row';
+    planRow.setAttribute('data-plan-row', counter);
+    planRow.innerHTML = `
+        <td><span class="plan-row-num">${counter}</span></td>
+        <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_qty" onchange="calculatePlanAmount(${counter}, '${mode}')"></td>
+        <td class="col-plan">
+            <select class="input-plan" data-field="plan_currency" style="font-size:10px; padding:2px; border:1px solid #ccc; background:white; width:100%;">
+                <option value="">-</option>
+                <option value="CNY">CNY</option>
+                <option value="USD">USD</option>
+                <option value="SGD">SGD</option>
+                <option value="MYR">MYR</option>
+                <option value="EUR">EUR</option>
+                <option value="JPY">JPY</option>
+                <option value="AUD">AUD</option>
+                <option value="GBP">GBP</option>
+            </select>
+        </td>
+        <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_price_foreign" onchange="calculatePlanPriceIDR(${counter}, '${mode}')"></td>
+        <td class="col-plan"><input type="date" class="input-plan" data-field="plan_kurs_date"></td>
+        <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_kurs_idr" onchange="calculatePlanPriceIDR(${counter}, '${mode}')"></td>
+        <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_price_idr" onchange="manualOverridePlanPriceIDR(${counter}, '${mode}')"></td>
+        <td class="col-plan"><input type="text" inputmode="decimal" class="input-plan" data-field="plan_price_tiba_nu" readonly tabindex="-1"></td>
+        <td class="col-plan"><input type="text" class="input-plan" data-field="plan_amount" readonly tabindex="-1"></td>
+        <td class="col-plan"><input type="text" class="input-plan" data-field="plan_supplier" list="${supplierListId}"></td>
+        <td style="padding:2px;">
+            <button type="button" class="btn-award-plan" onclick="fillAwardedFromPlan('${mode}', ${counter})" title="Fill Awarded from this plan">🏆 Award</button>
+        </td>
+        <td style="padding:2px;">
+            <button type="button" class="btn-remove-plan" onclick="removePlanRow('${mode}', ${counter})" title="Remove">×</button>
+        </td>
+    `;
+    planBody.appendChild(planRow);
+    
+    // Gap Row
+    const gapRow = document.createElement('tr');
+    gapRow.className = 'data-row gap-row';
+    gapRow.setAttribute('data-gap-row', counter);
+    gapRow.innerHTML = `
+        <td><span class="gap-row-num">${counter}</span></td>
+        <td class="col-gap"><input type="text" class="input-gap" data-field="gap_price" readonly tabindex="-1"></td>
+        <td class="col-gap"><input type="text" class="input-gap" data-field="gap_percent" readonly tabindex="-1"></td>
+        <td class="col-gap gap-status" style="font-size:11px;">—</td>
+    `;
+    gapBody.appendChild(gapRow);
+    
+    updateRemoveButtons(mode);
+    
+    setTimeout(() => {
+        planRow.querySelectorAll('input[data-field]').forEach(input => attachIdrFormatter(input));
+    }, 10);
+    
+    planRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+/**
+ * Remove Plan Order row
+ */
+function removePlanRow(mode, rowNum) {
+    const planBody = document.getElementById(`${mode}PlanOrderBody`);
+    const gapBody = document.getElementById(`${mode}GapBody`);
+    
+    planBody.querySelector(`[data-plan-row="${rowNum}"]`)?.remove();
+    gapBody.querySelector(`[data-gap-row="${rowNum}"]`)?.remove();
+    
+    renumberPlanRows(mode);
+    recalculateAllGaps(mode);
+    updateRemoveButtons(mode);
+}
+
+/**
+ * Renumber rows after deletion
+ */
+function renumberPlanRows(mode) {
+    const planRows = document.querySelectorAll(`#${mode}PlanOrderBody .plan-row`);
+    const gapRows = document.querySelectorAll(`#${mode}GapBody .gap-row`);
+    
+    planRows.forEach((row, idx) => {
+        const newNum = idx + 1;
+        row.setAttribute('data-plan-row', newNum);
+        row.querySelector('.plan-row-num').textContent = newNum;
+        
+        row.querySelectorAll('input, select').forEach(input => {
+            const oc = input.getAttribute('onchange');
+            if (oc) input.setAttribute('onchange', oc.replace(/\d+/, newNum));
+        });
+        
+        const awardBtn = row.querySelector('.btn-award-plan');
+        if (awardBtn) awardBtn.setAttribute('onclick', `fillAwardedFromPlan('${mode}', ${newNum})`);
+        
+        const removeBtn = row.querySelector('.btn-remove-plan');
+        if (removeBtn) removeBtn.setAttribute('onclick', `removePlanRow('${mode}', ${newNum})`);
+    });
+    
+    gapRows.forEach((row, idx) => {
+        row.setAttribute('data-gap-row', idx + 1);
+        row.querySelector('.gap-row-num').textContent = idx + 1;
+    });
+    
+    planRowCounters[mode] = planRows.length;
+}
+
+function updateRemoveButtons(mode) {
+    const rows = document.querySelectorAll(`#${mode}PlanOrderBody .plan-row`);
+    document.querySelectorAll(`#${mode}PlanOrderBody .btn-remove-plan`).forEach(btn => {
+        btn.style.display = rows.length > 1 ? 'inline-block' : 'none';
+    });
+}
+
+/**
+ * 🏆 Fill Awarded section from selected plan row
+ */
+function fillAwardedFromPlan(mode, planRowNum) {
+    let planRow;
+    if (mode === 'new') {
+        planRow = document.querySelector(`#newPlanOrderBody [data-plan-row="${planRowNum}"]`);
+    } else {
+        planRow = document.querySelector(`#createPlanOrderBody [data-plan-row="${planRowNum}"]`);
+    }
+    
+    if (!planRow) return;
+    
+    const containerId = mode === 'new' ? 'newComparisonView' : 'spreadsheetCreateView';
+    
+    const planSupplier = planRow.querySelector('[data-field="plan_supplier"]')?.value || '';
+    const planAmount = planRow.querySelector('[data-field="plan_amount"]')?.value || '';
+    const planQty = planRow.querySelector('[data-field="plan_qty"]')?.value || '';
+    const planPriceIdr = planRow.querySelector('[data-field="plan_price_idr"]')?.value || '';
+    
+    // Fill awarded fields
+    const awardedSupplier = document.querySelector(`#${containerId} [data-field="awarded_supplier"]`);
+    const awardedAmount = document.querySelector(`#${containerId} [data-field="awarded_amount"]`);
+    
+    if (awardedSupplier) awardedSupplier.value = planSupplier;
+    if (awardedAmount) awardedAmount.value = planAmount;
+    
+    // Visual feedback
+    document.querySelectorAll(`#${mode}PlanOrderBody .plan-row`).forEach(r => {
+        r.classList.remove('awarded-row');
+        const btn = r.querySelector('.btn-award-plan');
+        if (btn) {
+            btn.textContent = '🏆 Award';
+            btn.classList.remove('awarded');
+        }
+    });
+    
+    planRow.classList.add('awarded-row');
+    const activeBtn = planRow.querySelector('.btn-award-plan');
+    if (activeBtn) {
+        activeBtn.textContent = '✓ Awarded';
+        activeBtn.classList.add('awarded');
+    }
+    
+    showToast(`Awarded filled from Plan #${planRowNum} — Supplier: ${planSupplier || '-'}, Amount: ${planAmount || '-'}`, 'success');
+}
+
+/**
+ * Calculate GAP for specific plan row
+ */
+function calculatePlanGap(rowNum, mode) {
+    const lastPrice = getFieldValue(1, 'last_price_idr', mode);
+    
+    let planPriceInput;
+    if (mode === 'new') {
+        planPriceInput = document.querySelector(`#newPlanOrderBody [data-plan-row="${rowNum}"] [data-field="plan_price_idr"]`);
+    } else {
+        planPriceInput = document.querySelector(`#createPlanOrderBody [data-plan-row="${rowNum}"] [data-field="plan_price_idr"]`);
+    }
+    
+    const planPrice = planPriceInput ? parseIdrNumber(planPriceInput.value) : 0;
+    
+    let gapRow;
+    if (mode === 'new') {
+        gapRow = document.querySelector(`#newGapBody [data-gap-row="${rowNum}"]`);
+    } else {
+        gapRow = document.querySelector(`#createGapBody [data-gap-row="${rowNum}"]`);
+    }
+    
+    if (!gapRow) return;
+    
+    const gapPriceInput = gapRow.querySelector('[data-field="gap_price"]');
+    const gapPercentInput = gapRow.querySelector('[data-field="gap_percent"]');
+    const gapStatus = gapRow.querySelector('.gap-status');
+    
+    if (lastPrice > 0 && planPrice > 0) {
+        const gapPrice = planPrice - lastPrice;
+        let gapPercent = lastPrice > 0 ? (gapPrice / lastPrice) * 100 : 0;
+        
+        // Clamp ke range -999.99 sampai 999.99
+        gapPercent = Math.max(-999.99, Math.min(999.99, gapPercent));
+        
+        gapPriceInput.value = formatIdrNumber(gapPrice);
+        gapPercentInput.value = gapPercent.toFixed(2) + '%';
+        
+        if (gapPrice < 0) gapStatus.innerHTML = '<span class="gap-status-cheaper">▼ CHEAPER</span>';
+        else if (gapPrice > 0) gapStatus.innerHTML = '<span class="gap-status-expensive">▲ MORE EXPENSIVE</span>';
+        else gapStatus.innerHTML = '<span class="gap-status-same">— SAME</span>';
+    } else {
+        gapPriceInput.value = '';
+        gapPercentInput.value = '';
+        gapStatus.innerHTML = '—';
+    }
+}
+
+function recalculateAllGaps(mode) {
+    document.querySelectorAll(`#${mode}PlanOrderBody .plan-row`).forEach(row => {
+        calculatePlanGap(row.getAttribute('data-plan-row'), mode);
+    });
+    highlightBestPrice(mode);
+}
+
+function highlightBestPrice(mode) {
+    const planRows = document.querySelectorAll(`#${mode}PlanOrderBody .plan-row`);
+    let bestRow = null, bestPrice = Infinity;
+    
+    planRows.forEach(row => {
+        if (row.classList.contains('awarded-row')) return; // Skip awarded
+        const priceInput = row.querySelector('[data-field="plan_price_idr"]');
+        const price = parseIdrNumber(priceInput?.value || '0');
+        if (price > 0 && price < bestPrice) {
+            bestPrice = price;
+            bestRow = row;
+        }
+    });
+    
+    planRows.forEach(r => r.classList.remove('best-price'));
+    if (bestRow) bestRow.classList.add('best-price');
+}
+
+// Override calculate functions to also calculate gap
+const _origCalcPlanPriceIDR = calculatePlanPriceIDR;
+calculatePlanPriceIDR = function(rowNum, mode) {
+    _origCalcPlanPriceIDR(rowNum, mode);
+    calculatePlanGap(rowNum, mode);
+    highlightBestPrice(mode);
+};
+
+const _origCalcPlanAmount = calculatePlanAmount;
+calculatePlanAmount = function(rowNum, mode) {
+    _origCalcPlanAmount(rowNum, mode);
+    calculatePlanGap(rowNum, mode);
+    highlightBestPrice(mode);
 };
