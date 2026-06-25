@@ -47,7 +47,7 @@ if (session_status() === PHP_SESSION_NONE) {
             <li class="nav-item">
                 <a href="../invoice/index.php" class="nav-link <?php echo $module === 'invoice' ? 'active' : ''; ?>">
                     <span>📄</span>
-                    <span>Invoice Tracker</span>
+                    <span>Invoice Document Control</span>
                 </a>
             </li>
             <?php endif; ?>
