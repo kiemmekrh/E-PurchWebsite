@@ -564,6 +564,7 @@ checkAuth(['purchasing_staff', 'manager']);
         .gap-status-expensive { color: #c62828; font-weight: 600; }
         .gap-status-same { color: #666; }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
     <?php include '../../includes/sidebar.php'; ?>
@@ -584,8 +585,8 @@ checkAuth(['purchasing_staff', 'manager']);
                     <button class="btn btn-new btn-small" onclick="showCreateNewComparison()">
                         + Create New Comparison Table
                     </button>
-                    <button class="btn btn-success btn-small" onclick="exportSelectedToExcel()">
-                        Export to Excel
+                    <button class="btn btn-success btn-small" onclick="exportSelectedToImage()">
+                        Export to Image
                     </button>
                 </div>
             </div>
