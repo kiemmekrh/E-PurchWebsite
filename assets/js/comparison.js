@@ -1631,47 +1631,224 @@ document.addEventListener("input", function(e) {
 // PERBAIKAN PATH EXPORT CSV
 // ============================================
 
-function exportSelectedToExcel(filename = "comparison_export.csv") {
-    const table = document.getElementById("comparisonTable");
+// ============================================
+// EXPORT TO IMAGE
+// ============================================
 
-    let csv = [];
+function exportSelectedToImage() {
+    if (selectedHistoryIds.size === 0) {
+        showToast('Please select at least one comparison from the table', 'error');
+        return;
+    }
 
-    const rows = table.querySelectorAll("tr");
+    const selectedId = Array.from(selectedHistoryIds)[0];
 
-    rows.forEach(row => {
-        let cols = row.querySelectorAll("th, td");
-        let rowData = [];
-
-        cols.forEach(col => {
-
-            if (col.querySelector("input[type='checkbox']")) return;
-
-            let text = "";
-
-            const input = col.querySelector("input");
-            if (input) {
-                text = input.value;
+    fetch(`api/get_comparison_detail.php?id=${selectedId}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                generateComparisonImage(data.data);
             } else {
-                text = col.innerText;
+                showToast('Error: ' + (data.error || 'Failed to load detail'), 'error');
             }
-
-            text = text.replace(/\n/g, " ").trim();
-            text = text.replace(/"/g, '""');
-
-            rowData.push(`"${text}"`);
+        })
+        .catch(err => {
+            console.error('Error:', err);
+            showToast('Server error while loading detail', 'error');
         });
+}
 
-        if (rowData.length > 0) {
-            csv.push(rowData.join(","));
-        }
+function generateComparisonImage(data) {
+    const tempDiv = document.createElement('div');
+    tempDiv.style.cssText = 'position:fixed;left:-9999px;top:0;background:#fff;padding:30px;width:1400px;font-family:Arial, sans-serif;';
+
+    let html = `
+        <div style="text-align:center;margin-bottom:20px;">
+            <h2 style="margin:0 0 5px 0;font-size:20px;color:#333;">SUPPLIER COMPARISON TABLE</h2>
+            <p style="margin:0;font-size:12px;color:#666;">PT. Niramas Utama (INACO)</p>
+            <p style="margin:5px 0 0 0;font-size:11px;color:#888;">Comparison ID: #${data.comparison_id} | Status: ${data.status ? data.status.toUpperCase() : 'N/A'}</p>
+        </div>
+
+        <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:15px;">
+            <tr style="background:#f5f5f5;">
+                <td style="border:1px solid #ddd;padding:6px 10px;font-weight:600;width:120px;">PR Number</td>
+                <td style="border:1px solid #ddd;padding:6px 10px;">${data.pr_number || '-'}</td>
+                <td style="border:1px solid #ddd;padding:6px 10px;font-weight:600;width:120px;">Material</td>
+                <td style="border:1px solid #ddd;padding:6px 10px;">${data.material_code || data.description || '-'}</td>
+                <td style="border:1px solid #ddd;padding:6px 10px;font-weight:600;width:120px;">UOM</td>
+                <td style="border:1px solid #ddd;padding:6px 10px;">${data.uom || '-'}</td>
+            </tr>
+            <tr style="background:#f5f5f5;">
+                <td style="border:1px solid #ddd;padding:6px 10px;font-weight:600;">Qty PR</td>
+                <td style="border:1px solid #ddd;padding:6px 10px;">${data.qty_pr ? formatIdrNumber(data.qty_pr) : '-'}</td>
+                <td style="border:1px solid #ddd;padding:6px 10px;font-weight:600;">Description</td>
+                <td style="border:1px solid #ddd;padding:6px 10px;" colspan="3">${data.description || '-'}</td>
+            </tr>
+        </table>
+    `;
+
+    // LAST ORDER
+    html += `
+        <div style="background:#e8e8e8;padding:8px 12px;font-weight:700;font-size:12px;margin-bottom:0;border:1px solid #bbb;border-bottom:none;">LAST ORDER</div>
+        <table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:15px;">
+            <tr style="background:#f5f5f5;">
+                <th style="border:1px solid #bbb;padding:5px;">QTY</th>
+                <th style="border:1px solid #bbb;padding:5px;">No PO</th>
+                <th style="border:1px solid #bbb;padding:5px;">Tgl PO</th>
+                <th style="border:1px solid #bbb;padding:5px;">Currency</th>
+                <th style="border:1px solid #bbb;padding:5px;">Price (Foreign)</th>
+                <th style="border:1px solid #bbb;padding:5px;">Tgl Kurs</th>
+                <th style="border:1px solid #bbb;padding:5px;">Nilai Kurs (IDR)</th>
+                <th style="border:1px solid #bbb;padding:5px;">Price (IDR)</th>
+                <th style="border:1px solid #bbb;padding:5px;">Price TIBA DI NU (IDR)</th>
+                <th style="border:1px solid #bbb;padding:5px;">Amount (IDR)</th>
+                <th style="border:1px solid #bbb;padding:5px;">Supplier</th>
+            </tr>
+            <tr>
+                <td style="border:1px solid #bbb;padding:5px;text-align:center;">${data.last_qty ? formatIdrNumber(data.last_qty) : '-'}</td>
+                <td style="border:1px solid #bbb;padding:5px;text-align:center;">${data.last_po_number || '-'}</td>
+                <td style="border:1px solid #bbb;padding:5px;text-align:center;">${formatDate(data.last_po_date) || '-'}</td>
+                <td style="border:1px solid #bbb;padding:5px;text-align:center;">${data.last_currency || '-'}</td>
+                <td style="border:1px solid #bbb;padding:5px;text-align:right;">${data.last_price_foreign ? formatIdrNumber(data.last_price_foreign) : '-'}</td>
+                <td style="border:1px solid #bbb;padding:5px;text-align:center;">${formatDate(data.last_kurs_date) || '-'}</td>
+                <td style="border:1px solid #bbb;padding:5px;text-align:right;">${data.last_kurs_idr ? formatIdrNumber(data.last_kurs_idr) : '-'}</td>
+                <td style="border:1px solid #bbb;padding:5px;text-align:right;">${data.last_price_idr ? formatIdrNumber(data.last_price_idr) : '-'}</td>
+                <td style="border:1px solid #bbb;padding:5px;text-align:right;">${data.last_price_tiba_nu ? formatIdrNumber(data.last_price_tiba_nu) : '-'}</td>
+                <td style="border:1px solid #bbb;padding:5px;text-align:right;">${data.last_amount ? formatIdrNumber(data.last_amount) : '-'}</td>
+                <td style="border:1px solid #bbb;padding:5px;text-align:center;">${data.last_supplier_name || data.last_supplier || '-'}</td>
+            </tr>
+        </table>
+    `;
+
+    // PLAN ORDER
+    const planRows = data.plan_rows || [];
+    html += `
+        <div style="background:#e3f2fd;padding:8px 12px;font-weight:700;font-size:12px;color:#1565c0;margin-bottom:0;border:1px solid #bbb;border-bottom:none;">PLAN ORDER</div>
+        <table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:15px;">
+            <tr style="background:#f5f5f5;">
+                <th style="border:1px solid #bbb;padding:5px;width:30px;">#</th>
+                <th style="border:1px solid #bbb;padding:5px;">QTY</th>
+                <th style="border:1px solid #bbb;padding:5px;">Currency</th>
+                <th style="border:1px solid #bbb;padding:5px;">Price (Foreign)</th>
+                <th style="border:1px solid #bbb;padding:5px;">Tgl Kurs</th>
+                <th style="border:1px solid #bbb;padding:5px;">Nilai Kurs (IDR)</th>
+                <th style="border:1px solid #bbb;padding:5px;">Price (IDR)</th>
+                <th style="border:1px solid #bbb;padding:5px;">TIBA DI NU (IDR)</th>
+                <th style="border:1px solid #bbb;padding:5px;">Amount (IDR)</th>
+                <th style="border:1px solid #bbb;padding:5px;">Supplier</th>
+                <th style="border:1px solid #bbb;padding:5px;width:60px;">Awarded</th>
+            </tr>
+    `;
+
+    if (planRows.length > 0) {
+        planRows.forEach((pr, idx) => {
+            const isAwarded = pr.is_awarded == 1;
+            const awardedStyle = isAwarded ? 'background:#fff9c4;' : '';
+            const awardedText = isAwarded ? '✓ YES' : '-';
+            html += `
+                <tr style="${awardedStyle}">
+                    <td style="border:1px solid #bbb;padding:5px;text-align:center;">${idx + 1}</td>
+                    <td style="border:1px solid #bbb;padding:5px;text-align:center;">${pr.plan_qty ? formatIdrNumber(pr.plan_qty) : '-'}</td>
+                    <td style="border:1px solid #bbb;padding:5px;text-align:center;">${pr.plan_currency || '-'}</td>
+                    <td style="border:1px solid #bbb;padding:5px;text-align:right;">${pr.plan_price_foreign ? formatIdrNumber(pr.plan_price_foreign) : '-'}</td>
+                    <td style="border:1px solid #bbb;padding:5px;text-align:center;">${formatDate(pr.plan_kurs_date) || '-'}</td>
+                    <td style="border:1px solid #bbb;padding:5px;text-align:right;">${pr.plan_kurs_idr ? formatIdrNumber(pr.plan_kurs_idr) : '-'}</td>
+                    <td style="border:1px solid #bbb;padding:5px;text-align:right;">${pr.plan_price_idr ? formatIdrNumber(pr.plan_price_idr) : '-'}</td>
+                    <td style="border:1px solid #bbb;padding:5px;text-align:right;">${pr.plan_price_tiba_nu ? formatIdrNumber(pr.plan_price_tiba_nu) : '-'}</td>
+                    <td style="border:1px solid #bbb;padding:5px;text-align:right;">${pr.plan_amount ? formatIdrNumber(pr.plan_amount) : '-'}</td>
+                    <td style="border:1px solid #bbb;padding:5px;text-align:center;">${pr.plan_supplier_name || pr.plan_supplier || '-'}</td>
+                    <td style="border:1px solid #bbb;padding:5px;text-align:center;font-weight:600;color:${isAwarded ? '#2e7d32' : '#666'};">${awardedText}</td>
+                </tr>
+            `;
+        });
+    } else {
+        html += `<tr><td colspan="11" style="border:1px solid #bbb;padding:10px;text-align:center;color:#888;">No plan order data</td></tr>`;
+    }
+    html += `</table>`;
+
+    // GAP
+    html += `
+        <div style="background:#ffcc80;padding:8px 12px;font-weight:700;font-size:12px;color:#e65100;margin-bottom:0;border:1px solid #bbb;border-bottom:none;">GAP (Auto-calculated)</div>
+        <table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:15px;">
+            <tr style="background:#f5f5f5;">
+                <th style="border:1px solid #bbb;padding:5px;width:30px;">#</th>
+                <th style="border:1px solid #bbb;padding:5px;">Price (IDR)</th>
+                <th style="border:1px solid #bbb;padding:5px;">%</th>
+                <th style="border:1px solid #bbb;padding:5px;">Status</th>
+            </tr>
+    `;
+
+    if (planRows.length > 0) {
+        const lastPrice = data.last_price_idr || 0;
+        planRows.forEach((pr, idx) => {
+            const planPrice = pr.plan_price_idr || 0;
+            let gapPrice = 0, gapPercent = 0, statusText = '—', statusColor = '#666';
+            if (lastPrice > 0 && planPrice > 0) {
+                gapPrice = planPrice - lastPrice;
+                gapPercent = lastPrice > 0 ? ((gapPrice / lastPrice) * 100).toFixed(2) : 0;
+                if (gapPrice < 0) { statusText = '▼ CHEAPER'; statusColor = '#2e7d32'; }
+                else if (gapPrice > 0) { statusText = '▲ MORE EXPENSIVE'; statusColor = '#c62828'; }
+                else { statusText = '— SAME'; statusColor = '#666'; }
+            }
+            html += `
+                <tr>
+                    <td style="border:1px solid #bbb;padding:5px;text-align:center;">${idx + 1}</td>
+                    <td style="border:1px solid #bbb;padding:5px;text-align:right;">${gapPrice !== 0 ? formatIdrNumber(gapPrice) : '-'}</td>
+                    <td style="border:1px solid #bbb;padding:5px;text-align:right;">${gapPercent !== 0 ? gapPercent + '%' : '-'}</td>
+                    <td style="border:1px solid #bbb;padding:5px;text-align:center;color:${statusColor};font-weight:600;">${statusText}</td>
+                </tr>
+            `;
+        });
+    }
+    html += `</table>`;
+
+    // AWARDED
+    html += `
+        <div style="background:#fff59d;padding:8px 12px;font-weight:700;font-size:12px;color:#f57f17;margin-bottom:0;border:1px solid #bbb;border-bottom:none;">AWARDED (Final Selection)</div>
+        <table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:15px;">
+            <tr style="background:#f5f5f5;">
+                <th style="border:1px solid #bbb;padding:5px;">Tgl PO</th>
+                <th style="border:1px solid #bbb;padding:5px;">Deliv. Schedule</th>
+                <th style="border:1px solid #bbb;padding:5px;">No PO</th>
+                <th style="border:1px solid #bbb;padding:5px;">Supplier</th>
+                <th style="border:1px solid #bbb;padding:5px;">Amount (IDR)</th>
+                <th style="border:1px solid #bbb;padding:5px;">Keterangan</th>
+            </tr>
+            <tr>
+                <td style="border:1px solid #bbb;padding:5px;text-align:center;">${formatDate(data.awarded_po_date) || '-'}</td>
+                <td style="border:1px solid #bbb;padding:5px;text-align:center;">${formatDate(data.awarded_deliv_date) || '-'}</td>
+                <td style="border:1px solid #bbb;padding:5px;text-align:center;">${data.awarded_po_number || '-'}</td>
+                <td style="border:1px solid #bbb;padding:5px;text-align:center;">${data.awarded_supplier_name || data.awarded_supplier || '-'}</td>
+                <td style="border:1px solid #bbb;padding:5px;text-align:right;">${data.awarded_amount ? formatIdrNumber(data.awarded_amount) : '-'}</td>
+                <td style="border:1px solid #bbb;padding:5px;text-align:center;">${data.awarded_keterangan || '-'}</td>
+            </tr>
+        </table>
+
+        <div style="margin-top:20px;padding-top:10px;border-top:1px solid #ddd;font-size:10px;color:#888;text-align:center;">
+            Generated on ${new Date().toLocaleString('id-ID')} | E-Purch System
+        </div>
+    `;
+
+    tempDiv.innerHTML = html;
+    document.body.appendChild(tempDiv);
+
+    html2canvas(tempDiv, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false
+    }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = `Comparison_${data.comparison_id || 'export'}_${new Date().toISOString().slice(0,10)}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        document.body.removeChild(tempDiv);
+        showToast('Image exported successfully!', 'success');
+    }).catch(err => {
+        console.error('html2canvas error:', err);
+        document.body.removeChild(tempDiv);
+        showToast('Error generating image. Please try again.', 'error');
     });
-
-    const blob = new Blob([csv.join("\n")], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-
-    link.href = URL.createObjectURL(blob);
-    link.download = filename;
-    link.click();
 }
 
 function deleteComparison(id) {
