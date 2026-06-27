@@ -214,12 +214,6 @@ function changeInvoiceRowsPerPage(newPerPage) {
 // EXPORT TO EXCEL
 // ============================================
 function exportTable(tableId) {
-    const table = document.getElementById(tableId);
-    if (!table) {
-        showToast('Table not found', 'error');
-        return;
-    }
-
     const checkedBoxes = document.querySelectorAll('.inv-checkbox:checked');
 
     if (checkedBoxes.length === 0) {
@@ -238,20 +232,28 @@ function exportTable(tableId) {
         'VALIDATED AT'
     ];
 
-    const rows = Array.from(checkedBoxes).map(checkbox => {
-        const row = checkbox.closest('tr');
-        const cells = row.querySelectorAll('td');
+    // Ambil ID invoice yang di-check, lalu cari data lengkapnya dari filteredInvoiceData
+    const selectedIds = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
+    const selectedData = filteredInvoiceData.filter(inv => selectedIds.includes(inv.invoice_id));
+
+    const rows = selectedData.map(inv => {
+        // Format validated_at: tanggal doang, tanpa jam & tanpa "by ..."
+        let validatedAt = '';
+        if (inv.validated_at) {
+            const d = new Date(inv.validated_at);
+            validatedAt = d.toLocaleDateString('id-ID');
+        }
 
         return [
-            cells[1]?.textContent.trim() || '',
-            cells[2]?.textContent.trim() || '',
-            cells[3]?.textContent.trim() || '',
-            cells[4]?.textContent.trim() || '',
-            cells[5]?.textContent.trim() || '',
-            cells[6]?.textContent.trim() || '',
-            cells[7]?.textContent.trim() || '',
-            cells[8]?.textContent.trim() || ''
-        ].map(text => `"${text.replace(/"/g, '""')}"`);
+            inv.invoice_number || '',
+            inv.supplier_name || 'Unknown',
+            inv.po_number || '-',
+            inv.invoice_date ? formatDate(inv.invoice_date) : '-',
+            'IDR ' + parseFloat(inv.amount || 0).toLocaleString('id-ID'),
+            inv.status || 'Pending',
+            inv.validated_by_name || '-',
+            validatedAt || '-'
+        ].map(text => `"${String(text).replace(/"/g, '""')}"`);
     });
 
     const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -266,7 +268,7 @@ function exportTable(tableId) {
     link.click();
     document.body.removeChild(link);
 
-    showToast(`✅ ${checkedBoxes.length} invoice(s) exported successfully!`, 'success');
+    showToast(`✅ ${selectedData.length} invoice(s) exported successfully!`, 'success');
 
     document.querySelectorAll('.inv-checkbox').forEach(cb => cb.checked = false);
     document.getElementById('selectAllInv').checked = false;

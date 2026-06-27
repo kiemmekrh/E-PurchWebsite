@@ -2448,6 +2448,145 @@ function highlightBestPrice(mode) {
     if (bestRow) bestRow.classList.add('best-price');
 }
 
+function initCreateViewAutocomplete() {
+    const materialInput = document.getElementById('createMaterialSearch');
+    const materialList = document.getElementById('createMaterialSuggestions');
+    
+    if (materialInput && materialList) {
+        materialInput.addEventListener('input', debounce(function() {
+            const val = this.value.toLowerCase().trim();
+            if (!val) { materialList.style.display = 'none'; return; }
+            const matches = historyData.filter(r => 
+                (r.material && r.material.toLowerCase().includes(val)) ||
+                (r.material_code && r.material_code.toLowerCase().includes(val))
+            ).slice(0, 10);
+            materialList.innerHTML = matches.map(m => 
+                `<div onclick="selectCreateMaterial('${(m.material || m.material_code || '').replace(/'/g, "\\'")}')">${m.material || m.material_code || '-'}</div>`
+            ).join('');
+            materialList.style.display = matches.length ? 'block' : 'none';
+        }, 300));
+    }
+    
+    const supplierInput = document.getElementById('createSupplierSearch');
+    const supplierList = document.getElementById('createSupplierSuggestions');
+    
+    if (supplierInput && supplierList) {
+        supplierInput.addEventListener('input', debounce(function() {
+            const val = this.value.toLowerCase().trim();
+            if (!val) { supplierList.style.display = 'none'; return; }
+            const matches = historyData.filter(r => 
+                (r.plan_supplier && r.plan_supplier.toLowerCase().includes(val)) ||
+                (r.supplier && r.supplier.toLowerCase().includes(val))
+            ).slice(0, 10);
+            supplierList.innerHTML = matches.map(s => 
+                `<div onclick="selectCreateSupplier('${(s.plan_supplier || s.supplier || '').replace(/'/g, "\\'")}')">${s.plan_supplier || s.supplier || '-'}</div>`
+            ).join('');
+            supplierList.style.display = matches.length ? 'block' : 'none';
+        }, 300));
+    }
+}
+
+// ==================== GENERATE SAME AS LAST ORDER (NEW VIEW) ====================
+
+function generateSameAsLastOrderNew() {
+    const prefix = 'new';
+    const planRows = document.querySelectorAll(`#${prefix}PlanOrderBody .plan-row`);
+    
+    // Data dari Last Order (di new view, Last Order diisi manual jadi bisa di-copy)
+    const lastQty = getFieldValue(1, 'last_qty', prefix);
+    const lastPriceForeign = getFieldValue(1, 'last_price_foreign', prefix);
+    const lastCurrency = document.querySelector(`#newComparisonView [data-field="last_currency"]`)?.value || '';
+    const lastKursDate = getFieldValueSafe(1, 'last_kurs_date', prefix);
+    const lastKursIdr = getFieldValue(1, 'last_kurs_idr', prefix);
+    const lastPriceIdr = getFieldValue(1, 'last_price_idr', prefix);
+    const lastPriceTibaNu = getFieldValue(1, 'last_price_tiba_nu', prefix);
+    const lastAmount = getFieldValue(1, 'last_amount', prefix);
+    const lastSupplier = document.querySelector(`#newComparisonView [data-row="1"] [data-field="last_supplier"]`)?.value || '';
+
+    if (!lastQty && !lastPriceIdr) {
+        alert('Last Order is empty. Please fill Last Order first.');
+        return;
+    }
+
+    // Generate ke SEMUA plan rows yang ada
+    planRows.forEach(row => {
+        const rowNum = row.getAttribute('data-plan-row');
+        
+        // QTY selalu diisi dari Last Order QTY
+        const qtyInput = row.querySelector('[data-field="plan_qty"]');
+        if (qtyInput) qtyInput.value = lastQty ? formatIdrNumber(lastQty) : '';
+        
+        // Jika Last Order punya Foreign Price, copy semua currency data
+        if (lastPriceForeign > 0 && lastCurrency) {
+            const foreignInput = row.querySelector('[data-field="plan_price_foreign"]');
+            const currencySelect = row.querySelector('[data-field="plan_currency"]');
+            const kursDateInput = row.querySelector('[data-field="plan_kurs_date"]');
+            const kursIdrInput = row.querySelector('[data-field="plan_kurs_idr"]');
+            
+            if (foreignInput) foreignInput.value = formatIdrNumber(lastPriceForeign);
+            if (currencySelect) currencySelect.value = lastCurrency;
+            if (kursDateInput) kursDateInput.value = lastKursDate || '';
+            if (kursIdrInput) kursIdrInput.value = lastKursIdr ? formatIdrNumber(lastKursIdr) : '';
+            
+            // Price IDR auto-calculate dari Foreign × Kurs
+            const priceIdrInput = row.querySelector('[data-field="plan_price_idr"]');
+            if (priceIdrInput) {
+                const calculatedIdr = lastPriceForeign * (lastKursIdr > 0 ? lastKursIdr : 1);
+                priceIdrInput.value = formatIdrNumber(calculatedIdr);
+                priceIdrInput.dataset.auto = "true";
+            }
+            
+            // TIBA DI NU = Price IDR
+            const tibaNuInput = row.querySelector('[data-field="plan_price_tiba_nu"]');
+            if (tibaNuInput) {
+                const calculatedIdr = lastPriceForeign * (lastKursIdr > 0 ? lastKursIdr : 1);
+                tibaNuInput.value = formatIdrNumber(calculatedIdr);
+            }
+            
+        } else {
+            // Last Order hanya punya Price IDR (tanpa foreign), copy langsung
+            const foreignInput = row.querySelector('[data-field="plan_price_foreign"]');
+            const currencySelect = row.querySelector('[data-field="plan_currency"]');
+            const kursDateInput = row.querySelector('[data-field="plan_kurs_date"]');
+            const kursIdrInput = row.querySelector('[data-field="plan_kurs_idr"]');
+            const priceIdrInput = row.querySelector('[data-field="plan_price_idr"]');
+            const tibaNuInput = row.querySelector('[data-field="plan_price_tiba_nu"]');
+            
+            if (foreignInput) foreignInput.value = '';
+            if (currencySelect) currencySelect.value = '';
+            if (kursDateInput) kursDateInput.value = '';
+            if (kursIdrInput) kursIdrInput.value = '';
+            
+            if (priceIdrInput) {
+                priceIdrInput.value = lastPriceIdr ? formatIdrNumber(lastPriceIdr) : '';
+                priceIdrInput.dataset.auto = "false"; // Manual, bukan dari foreign
+            }
+            if (tibaNuInput) {
+                tibaNuInput.value = lastPriceTibaNu ? formatIdrNumber(lastPriceTibaNu) : (lastPriceIdr ? formatIdrNumber(lastPriceIdr) : '');
+            }
+        }
+        
+        // Amount = QTY × TIBA DI NU
+        const amountInput = row.querySelector('[data-field="plan_amount"]');
+        if (amountInput) {
+            const qty = lastQty || 0;
+            const tibaNu = getFieldValue(rowNum, 'plan_price_tiba_nu', prefix) || lastPriceTibaNu || lastPriceIdr || 0;
+            const amount = qty * tibaNu;
+            amountInput.value = amount ? formatIdrNumber(amount) : '';
+        }
+        
+        // Supplier
+        const supplierInput = row.querySelector('[data-field="plan_supplier"]');
+        if (supplierInput) supplierInput.value = lastSupplier;
+        
+        // Recalculate gap untuk row ini
+        calculatePlanGap(rowNum, prefix);
+    });
+    
+    highlightBestPrice(prefix);
+    showToast(`Plan Order filled successfully for ${planRows.length} row(s) from Last Order data!`);
+}
+
 // Override calculate functions to also calculate gap
 const _origCalcPlanPriceIDR = calculatePlanPriceIDR;
 calculatePlanPriceIDR = function(rowNum, mode) {
