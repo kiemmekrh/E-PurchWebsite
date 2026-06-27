@@ -915,6 +915,10 @@ checkAuth(['purchasing_staff', 'manager']);
             </div>
 
             <div style="margin-bottom: 15px; text-align: right;">
+                <button class="btn btn-primary btn-small" onclick="generateSameAsLastOrderNew()" 
+                        style="background: #4a90e2; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; cursor: pointer;">
+                    🔄 Generate Same as Last Order
+                </button>
                 <button class="btn-clear-table" onclick="clearComparisonTable('newComparisonView')" title="Kosongkan semua data di tabel">
                     🗑️ Clear Table
                 </button>
