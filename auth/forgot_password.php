@@ -14,102 +14,74 @@ unset($_SESSION['forgot_error']);
 unset($_SESSION['forgot_success']);
 
 // Handle form submission
+// Alur admin-managed: user mengajukan permintaan reset, admin yang mereset.
+// Tidak ada token/email di sini — permintaan disimpan agar admin bisa memprosesnya.
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    // Cek apakah config/database.php bisa di-load
-    $configPath = '../config/database.php';
-    if (!file_exists($configPath)) {
-        $_SESSION['forgot_error'] = 'Config file not found at: ' . $configPath;
-        header('Location: forgot_password.php');
-        exit;
-    }
+    require_once __DIR__ . '/../config/database.php';
 
-    require_once $configPath;
-
-    // Cek apakah $pdo sudah terdefinisi
     if (!isset($pdo)) {
-        $_SESSION['forgot_error'] = 'Database connection failed. Variable $pdo not found.';
+        $_SESSION['forgot_error'] = 'Database connection failed.';
         header('Location: forgot_password.php');
         exit;
     }
 
-    $email = filter_var(trim($_POST['email']), FILTER_SANITIZE_EMAIL);
+    // Pesan seragam yang selalu ditampilkan (agar username valid tidak bisa ditebak)
+    $genericSuccess = 'Permintaan reset password Anda sudah dikirim ke admin. '
+                    . 'Silakan tunggu admin mereset password dan menghubungi Anda.';
 
-    if (empty($email)) {
-        $_SESSION['forgot_error'] = 'Email is required.';
-        header('Location: forgot_password.php');
-        exit;
-    }
+    $identifier = trim($_POST['email'] ?? '');
 
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $_SESSION['forgot_error'] = 'Please enter a valid email address.';
+    if (empty($identifier)) {
+        $_SESSION['forgot_error'] = 'Email wajib diisi.';
         header('Location: forgot_password.php');
         exit;
     }
 
     try {
-        // Cek apakah tabel password_resets ada
-        $stmt = $pdo->query("SHOW TABLES LIKE 'password_resets'");
-        if ($stmt->rowCount() == 0) {
-            $_SESSION['forgot_error'] = 'Database table "password_resets" not found. Please run the SQL setup first.';
-            header('Location: forgot_password.php');
-            exit;
-        }
+        // Cari akun di tabel User dulu, lalu Supplier.
+        $accountType = null;
+        $accountId   = null;
+        $accountName = null;
 
-        // Cek apakah email ada di database (tabel users atau suppliers)
-        $userFound = false;
-
-        // Cek tabel users
-        try {
-            $stmt = $pdo->prepare("SELECT id, email, name, role FROM users WHERE email = ? LIMIT 1");
-            $stmt->execute([$email]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($user) {
-                $userFound = true;
-            }
-        } catch (PDOException $e) {
-            // Tabel users mungkin tidak ada atau kolom berbeda
-        }
-
-        // Kalau tidak ada di users, cek suppliers
-        if (!$userFound) {
-            try {
-                $stmt = $pdo->prepare("SELECT id, email, company_name as name, 'supplier' as role FROM suppliers WHERE email = ? LIMIT 1");
-                $stmt->execute([$email]);
-                $user = $stmt->fetch(PDO::FETCH_ASSOC);
-                if ($user) {
-                    $userFound = true;
-                }
-            } catch (PDOException $e) {
-                // Tabel suppliers mungkin tidak ada atau kolom berbeda
-            }
-        }
-
-        if ($userFound) {
-            // Generate token reset password
-            $token = bin2hex(random_bytes(32));
-            $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
-
-            // Simpan token ke database
-            $stmt = $pdo->prepare("INSERT INTO password_resets (email, token, expires_at) VALUES (?, ?, ?)");
-            $stmt->execute([$email, $token, $expires]);
-
-            // Kirim email reset (placeholder - perlu konfigurasi SMTP)
-            // KirimEmailReset($email, $token, $user['name']);
-
-            $_SESSION['forgot_success'] = 'Password reset link has been sent to your email. Please check your inbox (and spam folder). Link expires in 1 hour.';
+        $stmt = $pdo->prepare("SELECT user_id, name FROM User WHERE email = ? LIMIT 1");
+        $stmt->execute([$identifier]);
+        if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $accountType = 'user';
+            $accountId   = $row['user_id'];
+            $accountName = $row['name'];
         } else {
-            // Security: jangan kasih tahu kalau email tidak ada
-            $_SESSION['forgot_success'] = 'If this email exists in our system, you will receive a password reset link shortly.';
+            $stmt = $pdo->prepare("SELECT supplier_id, supplier_name FROM Supplier WHERE email = ? LIMIT 1");
+            $stmt->execute([$identifier]);
+            if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $accountType = 'supplier';
+                $accountId   = $row['supplier_id'];
+                $accountName = $row['supplier_name'];
+            }
         }
 
+        // Hanya catat kalau akun ditemukan, dan belum ada permintaan pending yang sama.
+        if ($accountType !== null) {
+            $dup = $pdo->prepare("SELECT COUNT(*) FROM password_reset_requests WHERE identifier = ? AND status = 'pending'");
+            $dup->execute([$identifier]);
+            if ($dup->fetchColumn() == 0) {
+                $ins = $pdo->prepare("
+                    INSERT INTO password_reset_requests (identifier, account_type, account_id, account_name, status)
+                    VALUES (?, ?, ?, ?, 'pending')
+                ");
+                $ins->execute([$identifier, $accountType, $accountId, $accountName]);
+            }
+        }
+
+        // Selalu tampilkan pesan yang sama, ada/tidaknya akun.
+        $_SESSION['forgot_success'] = $genericSuccess;
         header('Location: forgot_password.php');
         exit;
 
     } catch (PDOException $e) {
-        // Log error ke file (tidak expose ke user)
         error_log('Forgot Password Error: ' . $e->getMessage());
-        $_SESSION['forgot_error'] = 'Database error: ' . $e->getMessage();
+        // Jangan bocorkan detail; tetap tampilkan pesan generik.
+        $_SESSION['forgot_success'] = $genericSuccess;
         header('Location: forgot_password.php');
         exit;
     }
@@ -410,7 +382,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
 
             <h2 class="forgot-title">Forgot Password?</h2>
-            <p class="forgot-subtitle">Enter your email address and we'll send you a link to reset your password.</p>
+            <p class="forgot-subtitle">Enter your email. Your request will be sent to the admin, who will reset your password and contact you.</p>
 
             <?php if ($error): ?>
                 <div class="alert alert-error">
@@ -426,15 +398,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 <div class="info-box">
                     <strong>What's next?</strong>
-                    Check your email inbox for the reset link. If you don't see it within a few minutes, check your spam or junk folder. The link will expire in 1 hour for security reasons.
+                    The admin has been notified of your request. They will reset your password and share the new one with you directly. If it takes too long, please contact your administrator.
                 </div>
             <?php else: ?>
                 <form method="POST" action="">
                     <div class="form-group">
-                        <label class="form-label">Email Address</label>
+                        <label class="form-label">Email</label>
                         <input type="email" name="email" class="form-input" placeholder="Enter your registered email" required autofocus>
                     </div>
-                    <button type="submit" class="btn btn-primary">Send Reset Link</button>
+                    <button type="submit" class="btn btn-primary">Send Request to Admin</button>
                 </form>
             <?php endif; ?>
 

@@ -99,6 +99,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <span class="toggle-password" onclick="togglePassword('supplierPassword')">👁</span>
                         </div>
                     </div>
+                    <div class="forgot-password" style="margin-bottom: 10px;">
+                        <a href="auth/forgot_password.php">Forgot password?</a>
+                    </div>
                     <button type="submit" class="btn btn-primary">Login</button>
                     <button type="button" class="btn btn-outline" onclick="showStaffLogin()" style="margin-top: 10px;">
                         Back to Staff Login

@@ -25,10 +25,10 @@ try {
         // UPDATE
         if (!empty($password)) {
             $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
-            $stmt = $pdo->prepare("UPDATE Supplier SET supplier_name=?, email=?, contact_info=?, status=?, password=?, updated_at=NOW() WHERE supplier_id=?");
+            $stmt = $pdo->prepare("UPDATE Supplier SET supplier_name=?, email=?, contact_info=?, status=?, password=? WHERE supplier_id=?");
             $stmt->execute([$name, $email, $contact, $status, $hashedPassword, $supplierId]);
         } else {
-            $stmt = $pdo->prepare("UPDATE Supplier SET supplier_name=?, email=?, contact_info=?, status=?, updated_at=NOW() WHERE supplier_id=?");
+            $stmt = $pdo->prepare("UPDATE Supplier SET supplier_name=?, email=?, contact_info=?, status=? WHERE supplier_id=?");
             $stmt->execute([$name, $email, $contact, $status, $supplierId]);
         }
     } else {

@@ -174,6 +174,24 @@ checkAuth(['admin']);
             color: #888;
         }
 
+        /* Pending reset badge on tab */
+        .reset-badge {
+            display: inline-block;
+            min-width: 18px;
+            padding: 1px 6px;
+            border-radius: 10px;
+            background: #dc3545;
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            text-align: center;
+            margin-left: 4px;
+        }
+        .btn-reset {
+            background: #f0ad4e;
+            color: white;
+        }
+
         /* Loading spinner */
         .spinner {
             display: inline-block;
@@ -205,6 +223,7 @@ checkAuth(['admin']);
         <div class="master-tabs">
             <button class="tab-btn active" onclick="switchTab('users')">👥 Users</button>
             <button class="tab-btn" onclick="switchTab('suppliers')">🏢 Suppliers</button>
+            <button class="tab-btn" onclick="switchTab('resets')">🔑 Reset Requests <span id="resetBadge" class="reset-badge" style="display:none;">0</span></button>
             <button class="tab-btn" onclick="switchTab('logs')">📋 Activity Logs</button>
         </div>
 
@@ -255,6 +274,32 @@ checkAuth(['admin']);
                     </thead>
                     <tbody id="suppliersTableBody">
                         <tr><td colspan="7" class="empty-state">Loading suppliers...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ========== RESET REQUESTS TAB ========== -->
+        <div id="tab-resets" class="tab-content">
+            <div class="filters-bar">
+                <button class="btn btn-primary btn-small" onclick="loadResetRequests()">Refresh</button>
+                <span style="color:#888; font-size:13px; align-self:center;">User yang lupa password mengajukan di sini. Reset lalu beri tahu password barunya ke user.</span>
+            </div>
+            <div class="data-table-container">
+                <table class="data-table" id="resetsTable">
+                    <thead>
+                        <tr>
+                            <th>NAME</th>
+                            <th>USERNAME</th>
+                            <th>TYPE</th>
+                            <th>REQUESTED</th>
+                            <th>STATUS</th>
+                            <th>HANDLED BY</th>
+                            <th>ACTIONS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resetsTableBody">
+                        <tr><td colspan="7" class="empty-state">Loading requests...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -386,6 +431,34 @@ checkAuth(['admin']);
         </div>
     </div>
 
+    <!-- ========== RESET PASSWORD MODAL ========== -->
+    <div id="resetModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Reset Password</h3>
+                <button class="modal-close" onclick="hideResetModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="resetForm">
+                    <input type="hidden" id="resetRequestId">
+                    <div class="form-group">
+                        <label>Account</label>
+                        <input type="text" id="resetAccountInfo" class="form-input" readonly style="background:#f5f5f5;">
+                    </div>
+                    <div class="form-group">
+                        <label>New Password *</label>
+                        <input type="text" id="resetNewPassword" class="form-input" required placeholder="Min 6 characters" minlength="6">
+                        <small style="color: #888; font-size: 12px;">Sengaja ditampilkan (bukan disembunyikan) supaya mudah disalin & dikirim ke user.</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideResetModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="submitResetRequest()" id="submitResetBtn">Reset Password</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notification -->
     <div id="toast" class="toast"></div>
 
@@ -397,6 +470,7 @@ checkAuth(['admin']);
 
         document.addEventListener('DOMContentLoaded', () => {
             loadUsers();
+            refreshResetBadge();
         });
 
         function showToast(message, type = 'success') {
@@ -421,6 +495,7 @@ checkAuth(['admin']);
             // Load data
             if (tab === 'users') loadUsers();
             else if (tab === 'suppliers') loadSuppliers();
+            else if (tab === 'resets') loadResetRequests();
             else if (tab === 'logs') loadLogs();
         }
 
@@ -733,6 +808,138 @@ checkAuth(['admin']);
             .catch(err => {
                 showToast('Network error: ' + err.message, 'error');
             });
+        }
+
+        // ==================== RESET REQUESTS ====================
+        let allResetRequests = [];
+
+        function updateResetBadge(count) {
+            const badge = document.getElementById('resetBadge');
+            if (count > 0) {
+                badge.textContent = count;
+                badge.style.display = 'inline-block';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        // Ambil jumlah pending saja (untuk badge di tab) tanpa pindah tab.
+        function refreshResetBadge() {
+            fetch('api/get_reset_requests.php')
+                .then(r => r.json())
+                .then(data => updateResetBadge(data.pending_count || 0))
+                .catch(() => {});
+        }
+
+        function loadResetRequests() {
+            fetch('api/get_reset_requests.php')
+                .then(r => r.json())
+                .then(data => {
+                    allResetRequests = data.data || [];
+                    updateResetBadge(data.pending_count || 0);
+                    renderResetRequests(allResetRequests);
+                })
+                .catch(err => {
+                    console.error('Failed to load reset requests:', err);
+                    document.getElementById('resetsTableBody').innerHTML =
+                        '<tr><td colspan="7" class="empty-state">Failed to load requests</td></tr>';
+                });
+        }
+
+        function renderResetRequests(requests) {
+            const tbody = document.getElementById('resetsTableBody');
+            if (requests.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No reset requests</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = requests.map(r => {
+                const isPending = r.status === 'pending';
+                const statusClass = isPending ? 'status-inactive' : 'status-active';
+                const statusLabel = r.status.charAt(0).toUpperCase() + r.status.slice(1);
+                const typeLabel = r.account_type === 'user' ? 'Staff/Admin' : 'Supplier';
+                const action = isPending
+                    ? `<button class="action-btn btn-reset" onclick="openResetModal(${r.request_id})">Reset</button>`
+                    : `<button class="action-btn btn-delete" onclick="deleteResetRequest(${r.request_id})">Delete</button>`;
+                return `
+                    <tr>
+                        <td>${escapeHtml(r.account_name || '-')}</td>
+                        <td>${escapeHtml(r.identifier)}</td>
+                        <td>${typeLabel}</td>
+                        <td>${formatDateTime(r.requested_at)}</td>
+                        <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
+                        <td>${escapeHtml(r.handled_by_name || '-')}</td>
+                        <td>${action}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function openResetModal(requestId) {
+            const req = allResetRequests.find(r => r.request_id == requestId);
+            if (!req) return;
+            document.getElementById('resetForm').reset();
+            document.getElementById('resetRequestId').value = req.request_id;
+            const typeLabel = req.account_type === 'user' ? 'Staff/Admin' : 'Supplier';
+            document.getElementById('resetAccountInfo').value = `${req.account_name || ''} (${req.identifier}) — ${typeLabel}`;
+            document.getElementById('resetModal').classList.add('active');
+        }
+
+        function hideResetModal() {
+            document.getElementById('resetModal').classList.remove('active');
+        }
+
+        function submitResetRequest() {
+            const requestId = document.getElementById('resetRequestId').value;
+            const newPassword = document.getElementById('resetNewPassword').value;
+
+            if (newPassword.length < 6) {
+                showToast('Password minimal 6 karakter!', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('submitResetBtn');
+            btn.disabled = true;
+
+            fetch('api/process_reset_request.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ request_id: requestId, new_password: newPassword })
+            })
+            .then(r => r.json())
+            .then(res => {
+                btn.disabled = false;
+                if (res.success) {
+                    showToast('Password berhasil direset! Jangan lupa kirim password barunya ke user.');
+                    hideResetModal();
+                    loadResetRequests();
+                } else {
+                    showToast(res.error || 'Gagal mereset password', 'error');
+                }
+            })
+            .catch(err => {
+                btn.disabled = false;
+                showToast('Network error: ' + err.message, 'error');
+            });
+        }
+
+        function deleteResetRequest(requestId) {
+            if (!confirm('Hapus histori permintaan reset ini?')) return;
+            fetch('api/delete_reset_request.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ request_id: requestId })
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    showToast('Histori berhasil dihapus');
+                    loadResetRequests();
+                } else {
+                    showToast(res.error || 'Gagal menghapus histori', 'error');
+                }
+            })
+            .catch(err => showToast('Network error: ' + err.message, 'error'));
         }
 
         // ==================== LOGS ====================

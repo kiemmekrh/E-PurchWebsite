@@ -119,6 +119,22 @@ CREATE TABLE Activity_Log (
     FOREIGN KEY (user_id) REFERENCES User(user_id) ON DELETE SET NULL
 );
 
+-- Permintaan reset password (alur admin-managed).
+-- User/Supplier yang lupa password mengajukan permintaan di sini;
+-- admin melihat daftar pending lalu mereset password akun terkait.
+CREATE TABLE password_reset_requests (
+    request_id INT PRIMARY KEY AUTO_INCREMENT,
+    identifier VARCHAR(100) NOT NULL,                    -- username/email yang dimasukkan user
+    account_type ENUM('user','supplier') NOT NULL,       -- akun ada di tabel User atau Supplier
+    account_id INT,                                      -- user_id / supplier_id yang cocok
+    account_name VARCHAR(150),                           -- snapshot nama untuk ditampilkan ke admin
+    status ENUM('pending','done') DEFAULT 'pending',
+    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    handled_by INT,                                      -- admin (user_id) yang memproses
+    handled_at TIMESTAMP NULL,
+    FOREIGN KEY (handled_by) REFERENCES User(user_id) ON DELETE SET NULL
+);
+
 -- Seed data
 INSERT INTO User (name, email, password, role) VALUES
 ('Administrator', 'admin@inaco.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin'),
