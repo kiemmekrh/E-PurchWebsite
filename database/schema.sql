@@ -42,12 +42,14 @@ CREATE TABLE Purchase_Order (
 );
 
 CREATE TABLE Goods_Receipt (
-    gr_number VARCHAR(20) PRIMARY KEY,
+    gr_number VARCHAR(20) NOT NULL,
+    gr_item VARCHAR(5) NOT NULL DEFAULT '1',   -- nomor item di dalam dokumen GR (kolom "GR No." kedua di ZMM039)
     gr_date DATE NOT NULL,
     gr_quantity DECIMAL(15,2) NOT NULL,
     po_number VARCHAR(20) NOT NULL,
     po_item VARCHAR(5) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (gr_number, gr_item),          -- satu dokumen GR bisa punya banyak item, jadi PK gabungan
     FOREIGN KEY (po_number, po_item) REFERENCES Purchase_Order(po_number, po_item) ON DELETE CASCADE
 );
 

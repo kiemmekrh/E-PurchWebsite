@@ -54,12 +54,25 @@ try {
         }
     }
 
-    // Cari column letter dari daftar alias
+    // Cari column letter dari daftar alias (ambil kemunculan pertama)
     function zmm_resolveCol(array $map, array $aliases): ?string {
         foreach ($aliases as $alias) {
             if (isset($map[$alias])) {
                 $v = $map[$alias];
                 return is_array($v) ? $v[0] : $v;
+            }
+        }
+        return null;
+    }
+
+    // Cari column letter kemunculan ke-N dari sebuah header (0-based).
+    // Dipakai untuk kolom "GR No." yang muncul 2x di ZMM039:
+    //   kemunculan ke-0 = nomor dokumen GR, kemunculan ke-1 = nomor item GR.
+    function zmm_resolveColNth(array $map, array $aliases, int $n): ?string {
+        foreach ($aliases as $alias) {
+            if (isset($map[$alias])) {
+                $arr = is_array($map[$alias]) ? $map[$alias] : [$map[$alias]];
+                if (isset($arr[$n])) return $arr[$n];
             }
         }
         return null;
@@ -77,6 +90,10 @@ try {
         'mat_group'   => zmm_resolveCol($headerMap, ['material group']),
         'gr_date'     => zmm_resolveCol($headerMap, ['gr date']),
         'gr_number'   => zmm_resolveCol($headerMap, ['gr no.', 'gr no', 'gr number']),
+        // GR item = kolom "GR No." KEDUA (nomor item di dalam satu dokumen GR).
+        // Satu gr_number bisa punya beberapa item (mis. penerimaan dicicil), jadi
+        // kolom ini yang membedakan tiap baris GR dan mencegah baris ke-skip.
+        'gr_item'     => zmm_resolveColNth($headerMap, ['gr no.', 'gr no', 'gr number'], 1),
         'gr_qty'      => zmm_resolveCol($headerMap, ['gr qty.', 'gr qty', 'gr quantity']),
     ];
 
@@ -186,17 +203,22 @@ try {
 
         // Insert GR (skip duplicate)
         $grNumber = trim((string)(zmm_getVal($worksheet, $cols['gr_number'], $rowNum) ?? ''));
+        $grItem   = trim((string)(zmm_getVal($worksheet, $cols['gr_item'],   $rowNum) ?? ''));
+        if ($grItem === '') $grItem = '1'; // fallback kalau kolom item GR tidak ada di file
         $grDate   = zmm_getDate($worksheet, $cols['gr_date'], $rowNum);
         $grQty    = floatval(zmm_getVal($worksheet, $cols['gr_qty'], $rowNum) ?? 0);
 
+        // Duplikat dicek per (gr_number, gr_item), BUKAN gr_number saja.
+        // Dengan ini: item GR berbeda dalam satu dokumen tetap tersimpan semua,
+        // sedangkan baris yang benar-benar identik (gr_number + gr_item sama) tetap di-skip.
         if (!empty($grNumber) && $grDate && $grQty > 0) {
-            $chk = $pdo->prepare("SELECT COUNT(*) FROM Goods_Receipt WHERE gr_number = ?");
-            $chk->execute([$grNumber]);
+            $chk = $pdo->prepare("SELECT COUNT(*) FROM Goods_Receipt WHERE gr_number = ? AND gr_item = ?");
+            $chk->execute([$grNumber, $grItem]);
             if ($chk->fetchColumn() == 0) {
                 $pdo->prepare("
-                    INSERT INTO Goods_Receipt (gr_number, gr_date, gr_quantity, po_number, po_item)
-                    VALUES (?, ?, ?, ?, ?)
-                ")->execute([$grNumber, $grDate, $grQty, $poNumber, $poItem]);
+                    INSERT INTO Goods_Receipt (gr_number, gr_item, gr_date, gr_quantity, po_number, po_item)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ")->execute([$grNumber, $grItem, $grDate, $grQty, $poNumber, $poItem]);
                 $grInserted++;
             } else {
                 $grSkipped++;
