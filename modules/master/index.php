@@ -283,7 +283,7 @@ checkAuth(['admin']);
         <div id="tab-resets" class="tab-content">
             <div class="filters-bar">
                 <button class="btn btn-primary btn-small" onclick="loadResetRequests()">Refresh</button>
-                <span style="color:#888; font-size:13px; align-self:center;">User yang lupa password mengajukan di sini. Reset lalu beri tahu password barunya ke user.</span>
+                <span style="color:#888; font-size:13px; align-self:center;">Users who have forgotten their passwords should submit a request here. Reset the password and then notify the user of the new one.</span>
             </div>
             <div class="data-table-container">
                 <table class="data-table" id="resetsTable">
@@ -448,7 +448,7 @@ checkAuth(['admin']);
                     <div class="form-group">
                         <label>New Password *</label>
                         <input type="text" id="resetNewPassword" class="form-input" required placeholder="Min 6 characters" minlength="6">
-                        <small style="color: #888; font-size: 12px;">Sengaja ditampilkan (bukan disembunyikan) supaya mudah disalin & dikirim ke user.</small>
+                        <small style="color: #888; font-size: 12px;">Intentionally displayed (not hidden) so it can be easily copied and sent to users.</small>
                     </div>
                 </form>
             </div>
@@ -910,7 +910,7 @@ checkAuth(['admin']);
             .then(res => {
                 btn.disabled = false;
                 if (res.success) {
-                    showToast('Password berhasil direset! Jangan lupa kirim password barunya ke user.');
+                    showToast("The password has been successfully reset! Don't forget to send the new password to the user.");
                     hideResetModal();
                     loadResetRequests();
                 } else {
@@ -924,7 +924,7 @@ checkAuth(['admin']);
         }
 
         function deleteResetRequest(requestId) {
-            if (!confirm('Hapus histori permintaan reset ini?')) return;
+            if (!confirm('Delete the history of this reset request?')) return;
             fetch('api/delete_reset_request.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -933,10 +933,10 @@ checkAuth(['admin']);
             .then(r => r.json())
             .then(res => {
                 if (res.success) {
-                    showToast('Histori berhasil dihapus');
+                    showToast('The history has been successfully deleted');
                     loadResetRequests();
                 } else {
-                    showToast(res.error || 'Gagal menghapus histori', 'error');
+                    showToast(res.error || 'Failed to delete history', 'error');
                 }
             })
             .catch(err => showToast('Network error: ' + err.message, 'error'));
