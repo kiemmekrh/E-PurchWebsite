@@ -413,6 +413,19 @@ ALTER TABLE Goods_Receipt
     DROP PRIMARY KEY,
     ADD PRIMARY KEY (gr_number, gr_item);
 
+CREATE TABLE IF NOT EXISTS password_reset_requests (
+    request_id INT PRIMARY KEY AUTO_INCREMENT,
+    identifier VARCHAR(100) NOT NULL,
+    account_type ENUM('user','supplier') NOT NULL,
+    account_id INT,
+    account_name VARCHAR(150),
+    status ENUM('pending','done') DEFAULT 'pending',
+    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    handled_by INT,
+    handled_at TIMESTAMP NULL,
+    FOREIGN KEY (handled_by) REFERENCES User(user_id) ON DELETE SET NULL
+);
+
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
