@@ -579,6 +579,9 @@ checkAuth(['purchasing_staff', 'manager']);
                     <p class="welcome-text">Generate supplier comparison table</p>
                 </div>
                 <div class="header-actions">
+                    <a href="builder.php" class="btn btn-success btn-small" style="text-decoration:none;">
+                        📋 Comparison from PR
+                    </a>
                     <button class="btn btn-primary btn-small" onclick="showCreateComparison()">
                         + Create Comparison Table
                     </button>

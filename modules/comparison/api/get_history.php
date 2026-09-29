@@ -10,8 +10,12 @@ header('Content-Type: application/json');
 try {
     // Ambil semua comparison dari parent table
     $stmt = $pdo->query("
-        SELECT 
+        SELECT
             ct.comparison_id,
+            ct.comparison_group_id,
+            cg.title as group_title,
+            cg.status as group_status,
+            cg.created_at as group_created,
             ct.comparison_date as table_created_date,
             ct.pr_number,
             ct.awarded_po_number as po_number,
@@ -25,12 +29,14 @@ try {
             ct.plan_price_idr as price,
             ct.plan_amount as amount,
             ct.plan_supplier_name as plan_supplier,
+            ct.awarded_supplier_name as awarded_supplier,
             ct.status,
             ct.created_by,
             ct.source_mode as created_from,
             u.name as creator_name
         FROM Comparison_Table ct
         JOIN User u ON ct.created_by = u.user_id
+        LEFT JOIN Comparison_Group cg ON ct.comparison_group_id = cg.group_id
         ORDER BY ct.comparison_date DESC, ct.comparison_id DESC
     ");
 
