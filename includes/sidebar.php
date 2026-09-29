@@ -32,6 +32,16 @@ if (session_status() === PHP_SESSION_NONE) {
             </li>
             <?php endif; ?>
 
+            <!-- PR Intake: Purchasing Staff & Manager -->
+            <?php if ($_SESSION['role'] === 'purchasing_staff' || $_SESSION['role'] === 'manager'): ?>
+            <li class="nav-item">
+                <a href="../pr/index.php" class="nav-link <?php echo $module === 'pr' ? 'active' : ''; ?>">
+                    <span>📥</span>
+                    <span>PR Intake</span>
+                </a>
+            </li>
+            <?php endif; ?>
+
             <!-- Comparison Table: Purchasing Staff Only -->
             <?php if ($_SESSION['role'] === 'purchasing_staff' || $_SESSION['role'] === 'manager'): ?>
             <li class="nav-item">
