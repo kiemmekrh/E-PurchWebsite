@@ -74,19 +74,6 @@ function renderTableWithPagination(data, page = 1, perPage = 10) {
     const pageData = data.slice(startIndex, endIndex);
 
     tbody.innerHTML = pageData.map(inv => {
-        // Format validated_at timestamp
-        let validatedAtHtml = '<span style="color: #bbb;">—</span>';
-        if (inv.validated_at) {
-            const d = new Date(inv.validated_at);
-            validatedAtHtml = `
-                <div class="timestamp-cell">
-                    <div class="date-part">${d.toLocaleDateString('id-ID')}</div>
-                    <div class="time-part">${d.toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'})}</div>
-                    ${inv.validated_by_name ? `<div class="validated-by">by ${escapeHtml(inv.validated_by_name)}</div>` : ''}
-                </div>
-            `;
-        }
-        
         return `
         <tr>
             <td><input type="checkbox" class="inv-checkbox" value="${inv.invoice_id}"></td>
@@ -94,13 +81,13 @@ function renderTableWithPagination(data, page = 1, perPage = 10) {
             <td>${escapeHtml(inv.supplier_name || 'Unknown')}</td>
             <td>${escapeHtml(inv.po_number || '-')}</td>
             <td>${formatDate(inv.invoice_date)}</td>
+            <td style="text-align:right;">${inv.total_qty != null ? fmtNum(inv.total_qty) : '-'}</td>
             <td>IDR ${parseFloat(inv.amount || 0).toLocaleString('id-ID')}</td>
             <td><span class="status-badge status-${(inv.status || 'pending').toLowerCase()}">${inv.status || 'Pending'}</span></td>
-            <td>${escapeHtml(inv.validated_by_name || '-')}</td>
-            <td>${validatedAtHtml}</td>
+            <td>${matchCell(inv)}</td>
             <td>
-                <button class="btn btn-primary btn-small" onclick="showValidateModal(${inv.invoice_id})">Validate</button>
-                <a href="${getFileUrl(inv.file_path)}" target="_blank" class="btn btn-secondary btn-small" title="View File">📎</a>
+                <a href="${getFileUrl(inv.file_path)}" target="_blank" class="btn btn-secondary btn-small" title="Lihat dokumen">📎 View</a>
+                <button class="btn btn-small" style="background:#dc3545;color:#fff;margin-left:5px;" onclick="deleteInvoice(${inv.invoice_id})" title="Hapus invoice">Delete</button>
             </td>
         </tr>
     `}).join('');
@@ -326,7 +313,7 @@ function showValidateModal(invoiceId) {
             }
             const inv = data.data;
             
-            // Build invoice detail HTML
+            // Build invoice detail HTML + panel 3-way matching
             document.getElementById('invoiceDetail').innerHTML = `
                 <div class="detail-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                     <div><strong>Invoice:</strong> ${escapeHtml(inv.invoice_number)}</div>
@@ -336,6 +323,7 @@ function showValidateModal(invoiceId) {
                     <div><strong>Date:</strong> ${formatDate(inv.invoice_date)}</div>
                     <div><strong>File:</strong> <a href="${getFileUrl(inv.file_path)}" target="_blank">📎 View File</a></div>
                 </div>
+                ${buildMatchPanel(inv)}
             `;
             
             // Set validation notes
@@ -465,6 +453,110 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// ==================== 3-WAY MATCHING (Stage 5) ====================
+function fmtNum(n) {
+    const x = parseFloat(n);
+    return isNaN(x) ? '-' : x.toLocaleString('id-ID', { maximumFractionDigits: 2 });
+}
+
+function matchBadge(result, summary) {
+    const m = {
+        matched:   ['✅ Matched', '#e8f5e9', '#2e7d32'],
+        flagged:   ['⚠️ Flagged', '#fff3e0', '#e67e22'],
+        unmatched: ['— Belum',    '#eeeeee', '#888888'],
+    };
+    const x = m[result] || m.unmatched;
+    const tip = summary ? ` title="${escapeHtml(summary)}"` : '';
+    return `<span${tip} style="background:${x[1]};color:${x[2]};padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;cursor:${summary ? 'help' : 'default'};">${x[0]}</span>`;
+}
+
+function deleteInvoice(id) {
+    if (!confirm('Hapus invoice ini? Tindakan ini tidak bisa dibatalkan.')) return;
+    fetch('api/delete_invoice.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+    })
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) { showToast(d.message || 'Invoice dihapus', 'success'); loadInvoices(); }
+            else showToast('Error: ' + (d.error || 'gagal hapus'), 'error');
+        })
+        .catch(e => showToast('Error: ' + e.message, 'error'));
+}
+
+// Sel kolom 3-WAY MATCH: badge + keterangan apa yang tidak match (kalau flagged).
+function matchCell(inv) {
+    const r = inv.match_result || 'unmatched';
+    let html = matchBadge(r, inv.match_summary);
+    if (r === 'flagged' && inv.match_summary) {
+        html += `<div style="font-size:11px;color:#c0392b;margin-top:4px;max-width:280px;white-space:normal;line-height:1.35;">⚠️ ${escapeHtml(inv.match_summary)}</div>`;
+    }
+    return html;
+}
+
+function buildMatchPanel(inv) {
+    const items = inv.items || [];
+    const res = inv.match_result || 'unmatched';
+    const head = `
+        <div style="margin-top:20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <strong>3-Way Matching (Invoice vs PO vs GR):</strong> ${matchBadge(res)}
+            <button class="btn btn-secondary btn-small" style="margin-left:auto;" onclick="rematchOne(${inv.invoice_id})">🔁 Re-check</button>
+        </div>`;
+    if (!items.length) return head + `<div style="color:#888;font-size:13px;margin-top:8px;">Belum ada item invoice untuk dicocokkan.</div>`;
+
+    const bd = 'border:1px solid #ddd;padding:6px 8px;';
+    const rows = items.map(it => {
+        const st = it.match_status || 'pending';
+        const stb = st === 'matched'
+            ? '<span style="color:#2e7d32;font-weight:700;">✅ cocok</span>'
+            : (st === 'flagged' ? '<span style="color:#e67e22;font-weight:700;">⚠️ flag</span>' : '—');
+        const notes = it.match_notes ? `<div style="font-size:11px;color:#c0392b;margin-top:2px;">${escapeHtml(it.match_notes)}</div>` : '';
+        return `<tr>
+            <td style="${bd}">${escapeHtml(it.po_number || '-')}</td>
+            <td style="${bd}">${escapeHtml(it.po_item || '-')}</td>
+            <td style="${bd}">${escapeHtml(it.gr_number || '-')}</td>
+            <td style="${bd}text-align:right;">${fmtNum(it.quantity)}</td>
+            <td style="${bd}text-align:right;">${fmtNum(it.unit_price)}</td>
+            <td style="${bd}text-align:right;">${fmtNum(it.amount)}</td>
+            <td style="${bd}">${stb}${notes}</td>
+        </tr>`;
+    }).join('');
+
+    return head + `
+        <div style="overflow-x:auto;margin-top:10px;">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                <thead><tr style="background:#f5f5f5;">
+                    <th style="${bd}">PO</th><th style="${bd}">PO Item</th><th style="${bd}">GR No</th>
+                    <th style="${bd}">Qty</th><th style="${bd}">Unit Price</th><th style="${bd}">Amount</th><th style="${bd}">Hasil</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>
+        <p style="font-size:11px;color:#888;margin-top:8px;">PO Item & GR No diambil otomatis dari ZMM039. Cek: (1) PO invoice ada di ZMM039, (2) Qty invoice = Qty GR (barang diterima). Cocok → auto-approve.</p>`;
+}
+
+function runMatching() {
+    showToast('Menjalankan 3-way matching...', 'success');
+    fetch('api/rematch.php', { method: 'POST' })
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) { showToast(d.message || 'Selesai', 'success'); loadInvoices(); }
+            else showToast('Error: ' + (d.error || 'gagal'), 'error');
+        })
+        .catch(e => showToast('Error: ' + e.message, 'error'));
+}
+
+function rematchOne(id) {
+    fetch('api/rematch.php?id=' + id)
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) { showToast('Re-check: ' + (d.result || ''), 'success'); showValidateModal(id); loadInvoices(); }
+            else showToast('Error: ' + (d.error || 'gagal'), 'error');
+        })
+        .catch(e => showToast('Error: ' + e.message, 'error'));
 }
 
 function formatDate(dateStr) {

@@ -1307,26 +1307,102 @@ function canDelete(row) {
     return true;
 }
 
+// Gabung baris yang punya comparison_group_id sama jadi 1 baris (1 comparison
+// table dari PR). Baris tanpa grup tetap individual.
+function collapseHistory(data) {
+    const out = [];
+    const groupIndex = {}; // group_id -> index di out
+    data.forEach(row => {
+        const gid = row.comparison_group_id;
+        if (!gid) { out.push({ ...row, is_group: false }); return; }
+        if (groupIndex[gid] === undefined) {
+            groupIndex[gid] = out.length;
+            out.push({
+                is_group: true,
+                group_id: gid,
+                group_title: row.group_title,
+                status: row.group_status || row.status,
+                table_created_date: row.group_created || row.table_created_date,
+                pr_set: new Set([row.pr_number].filter(Boolean)),
+                material: row.material || row.material_group || row.material_code || '-',
+                // Kolom berikut diisi dari ITEM #1 (baris pertama) grup:
+                po_number: row.po_number,
+                po_date: row.po_date,
+                price: row.price,
+                delivery_date: row.delivery_date,
+                qty_sum: num(row.plan_qty != null ? row.plan_qty : row.qty),
+                amount_sum: num(row.amount),
+                supplier_set: new Set([(row.awarded_supplier || row.plan_supplier)].filter(Boolean)),
+                count: 1
+            });
+        } else {
+            const g = out[groupIndex[gid]];
+            if (row.pr_number) g.pr_set.add(row.pr_number);
+            g.qty_sum += num(row.plan_qty != null ? row.plan_qty : row.qty);
+            g.amount_sum += num(row.amount);
+            const sup = row.awarded_supplier || row.plan_supplier;
+            if (sup) g.supplier_set.add(sup);
+            g.count += 1;
+        }
+    });
+    return out;
+
+    function num(v) { const n = parseFloat(String(v ?? '').replace(/[^0-9.\-]/g, '')); return isNaN(n) ? 0 : n; }
+}
+
 function renderComparisonTable(data) {
     const tbody = document.getElementById('comparisonTableBody');
     if (!data || data.length === 0) {
         tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:20px;color:#888;">No comparison data found</td></tr>';
         return;
     }
-    
-    tbody.innerHTML = data.map(row => {
+
+    const rows = collapseHistory(data);
+
+    tbody.innerHTML = rows.map(row => {
+        // ---- Baris GRUP (1 comparison table dari PR) ----
+        if (row.is_group) {
+            const prList = Array.from(row.pr_set);
+            const prLabel = prList.length === 1 ? prList[0] : `${prList.length} PR`;
+            const supList = Array.from(row.supplier_set);
+            const supLabel = supList.length === 0 ? '-' : (supList.length === 1 ? supList[0] : 'Multiple');
+            const badge = `<span style="background:#6c5ce7;color:white;padding:1px 6px;border-radius:3px;font-size:10px;">${row.count} PR</span>`;
+            return `
+        <tr>
+            <td class="checkbox-col">
+                <input type="checkbox" value="g${row.group_id}"
+                    ${selectedHistoryIds.has('g' + row.group_id) ? 'checked' : ''}
+                    onchange="toggleHistorySelection('g${row.group_id}')">
+            </td>
+            <td>Grup #${row.group_id}</td>
+            <td>${prLabel}</td>
+            <td>${row.po_number || '-'}</td>
+            <td>${formatDate(row.po_date)}</td>
+            <td>${formatDate(row.table_created_date)}</td>
+            <td>${row.material || '-'} ${badge}</td>
+            <td>${formatIdrNumber(row.qty_sum || 0)}</td>
+            <td>${row.price ? 'Rp ' + formatIdrNumber(row.price) : '-'}</td>
+            <td>${row.amount_sum ? 'Rp ' + formatIdrNumber(row.amount_sum) : '-'}</td>
+            <td>${supLabel}</td>
+            <td>${formatDate(row.delivery_date)}</td>
+            <td>${getStatusBadge(row.status)}</td>
+            <td>
+                <button class="btn btn-small btn-primary" onclick="window.location.href='builder.php?group=${row.group_id}'">View</button>
+                <button class="btn btn-small" style="background:#dc3545;color:white;margin-left:5px;" onclick="deleteGroup(${row.group_id})">Delete</button>
+            </td>
+        </tr>`;
+        }
+
+        // ---- Baris comparison individual (lama) ----
         const deleteBtn = `<button class="btn btn-small" style="background:#dc3545;color:white;margin-left:5px;" onclick="deleteComparison(${row.comparison_id})">Delete</button>`;
-        
-        // Badge jumlah plan rows
         let planBadge = '';
         if (row.plan_count > 1) {
             planBadge = ` <span style="background:#4a90e2;color:white;padding:1px 6px;border-radius:3px;font-size:10px;">${row.plan_count} plans</span>`;
         }
-        
         return `
         <tr>
             <td class="checkbox-col">
-                <input type="checkbox" value="${row.comparison_id}" 
+                <input type="checkbox" value="${row.comparison_id}"
                     ${selectedHistoryIds.has(row.comparison_id.toString()) ? 'checked' : ''}
                     onchange="toggleHistorySelection(${row.comparison_id})">
             </td>
@@ -1348,6 +1424,21 @@ function renderComparisonTable(data) {
             </td>
         </tr>
     `}).join('');
+}
+
+function deleteGroup(groupId) {
+    if (!confirm('Hapus seluruh comparison table (grup) ini beserta semua baris PR-nya?')) return;
+    fetch('api/delete_group.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_id: groupId })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) { showToast('Comparison group dihapus'); loadComparisonHistory(); }
+        else showToast('Error: ' + (data.error || 'Gagal hapus'), 'error');
+    })
+    .catch(err => { console.error(err); showToast('Server error saat hapus grup', 'error'); });
 }
 
 function toggleHistorySelection(id) {
@@ -1641,7 +1732,20 @@ function exportSelectedToImage() {
         return;
     }
 
-    const selectedId = Array.from(selectedHistoryIds)[0];
+    const selectedId = String(Array.from(selectedHistoryIds)[0]);
+
+    // Baris grup (dari PR) -> id berbentuk "g<group_id>": export via get_group.
+    if (selectedId.startsWith('g')) {
+        const gid = selectedId.slice(1);
+        fetch(`api/get_group.php?id=${gid}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) generateGroupImage(data);
+                else showToast('Error: ' + (data.error || 'Failed to load group'), 'error');
+            })
+            .catch(err => { console.error('Error:', err); showToast('Server error while loading group', 'error'); });
+        return;
+    }
 
     fetch(`api/get_comparison_detail.php?id=${selectedId}`)
         .then(res => res.json())
@@ -1655,6 +1759,137 @@ function exportSelectedToImage() {
         .catch(err => {
             console.error('Error:', err);
             showToast('Server error while loading detail', 'error');
+        });
+}
+
+// Export gambar untuk comparison table grup — PERSIS seperti tabel Builder
+// (Last Order / Plan Order / Gap / Awarded), kecuali kolom Src. Baris plan
+// bisa banyak per PR (rowspan pada ITEM/Last Order/Awarded).
+function generateGroupImage(payload) {
+    const g = payload.group || {};
+    const rows = payload.rows || [];
+
+    const numv = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+    const fnum = v => numv(v) ? formatIdrNumber(numv(v)) : '';
+    const esc = v => (v === null || v === undefined) ? '' :
+        String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const B = 'border:1px solid #bbb;padding:4px 6px;';
+    const td = (v, extra = '') => `<td style="${B}${extra}">${v === '' || v === undefined || v === null ? '' : v}</td>`;
+    const tdn = v => td(fnum(v), 'text-align:right;');
+
+    let bodyRows = '';
+    rows.forEach((r, i) => {
+        const plans = (r.plans && r.plans.length) ? r.plans : [{}];
+        const R = plans.length;
+
+        plans.forEach((p, prow) => {
+            const gapP = numv(p.gap_price);
+            const gapPct = (p.gap_percent !== undefined && p.gap_percent !== null && numv(r.last_price_idr)) ? (numv(p.gap_percent).toFixed(2) + '%') : '';
+            const gapStatus = (numv(p.plan_price_idr) && numv(r.last_price_idr))
+                ? (gapP < 0 ? '<span style="color:#2e7d32;font-weight:700;">▼ MURAH</span>'
+                    : (gapP > 0 ? '<span style="color:#c62828;font-weight:700;">▲ MAHAL</span>' : '— SAMA')) : '';
+            const awardedMark = p.is_awarded == 1 ? ' background:#e8f5e9;' : '';
+
+            let cells = '';
+            if (prow === 0) {
+                // ITEM (rowspan)
+                const rs = ` rowspan="${R}"`;
+                cells += `<td style="${B}text-align:center;"${rs}>${i + 1}</td>`;
+                cells += `<td style="${B}"${rs}>${esc(r.pr_number)}<br><span style="color:#888;">item ${esc(r.pr_item || '')}</span></td>`;
+                cells += `<td style="${B}"${rs}>${esc(r.material_code) || ''}</td>`;
+                cells += `<td style="${B}min-width:160px;"${rs}>${esc(r.description)}</td>`;
+                cells += `<td style="${B}text-align:center;"${rs}>${esc(r.uom)}</td>`;
+                cells += `<td style="${B}text-align:right;"${rs}>${fnum(r.qty_pr)}</td>`;
+                // LAST ORDER (rowspan) — tanpa Src
+                const bl = 'background:#f5f5f5;';
+                cells += `<td style="${B}${bl}text-align:right;"${rs}>${fnum(r.last_qty)}</td>`;
+                cells += `<td style="${B}${bl}"${rs}>${esc(r.last_po_number) || ''}</td>`;
+                cells += `<td style="${B}${bl}"${rs}>${formatDate(r.last_po_date)}</td>`;
+                cells += `<td style="${B}${bl}text-align:center;"${rs}>${esc(r.last_currency) || ''}</td>`;
+                cells += `<td style="${B}${bl}text-align:right;"${rs}>${fnum(r.last_price_foreign)}</td>`;
+                cells += `<td style="${B}${bl}"${rs}>${formatDate(r.last_kurs_date)}</td>`;
+                cells += `<td style="${B}${bl}text-align:right;"${rs}>${fnum(r.last_kurs_idr)}</td>`;
+                cells += `<td style="${B}${bl}text-align:right;"${rs}>${fnum(r.last_price_idr)}</td>`;
+                cells += `<td style="${B}${bl}text-align:right;"${rs}>${fnum(r.last_price_tiba_nu)}</td>`;
+                cells += `<td style="${B}${bl}text-align:right;"${rs}>${fnum(r.last_amount)}</td>`;
+                cells += `<td style="${B}${bl}"${rs}>${esc(r.last_supplier_name) || ''}</td>`;
+            }
+            // PLAN ORDER (per baris plan)
+            const bp = 'background:#eaf5ff;' + awardedMark;
+            cells += `<td style="${B}${bp}text-align:right;">${fnum(p.plan_qty)}</td>`;
+            cells += `<td style="${B}${bp}text-align:center;">${esc(p.plan_currency) || ''}</td>`;
+            cells += `<td style="${B}${bp}text-align:right;">${fnum(p.plan_price_foreign)}</td>`;
+            cells += `<td style="${B}${bp}">${formatDate(p.plan_kurs_date)}</td>`;
+            cells += `<td style="${B}${bp}text-align:right;">${fnum(p.plan_kurs_idr)}</td>`;
+            cells += `<td style="${B}${bp}text-align:right;">${fnum(p.plan_price_idr)}</td>`;
+            cells += `<td style="${B}${bp}text-align:right;">${fnum(p.plan_price_tiba_nu)}</td>`;
+            cells += `<td style="${B}${bp}text-align:right;">${fnum(p.plan_amount)}</td>`;
+            cells += `<td style="${B}${bp}">${esc(p.plan_supplier_name) || ''}</td>`;
+            // GAP (per baris plan)
+            const bg = 'background:#ffe9cc;';
+            cells += `<td style="${B}${bg}text-align:right;">${fnum(p.gap_price)}</td>`;
+            cells += `<td style="${B}${bg}text-align:right;">${gapPct}</td>`;
+            cells += `<td style="${B}${bg}text-align:center;">${gapStatus}</td>`;
+            if (prow === 0) {
+                // AWARDED (rowspan)
+                const rs = ` rowspan="${R}"`;
+                const ba = 'background:#fffdf0;';
+                cells += `<td style="${B}${ba}"${rs}>${formatDate(r.awarded_po_date)}</td>`;
+                cells += `<td style="${B}${ba}"${rs}>${formatDate(r.awarded_deliv_date)}</td>`;
+                cells += `<td style="${B}${ba}"${rs}>${esc(r.awarded_po_number) || ''}</td>`;
+                cells += `<td style="${B}${ba}"${rs}>${esc(r.awarded_supplier_name) || ''}</td>`;
+                cells += `<td style="${B}${ba}text-align:right;"${rs}>${fnum(r.awarded_amount)}</td>`;
+                cells += `<td style="${B}${ba}"${rs}>${esc(r.awarded_keterangan) || ''}</td>`;
+            }
+            bodyRows += `<tr>${cells}</tr>`;
+        });
+    });
+
+    const th = (v, bg) => `<th style="${B}background:${bg};font-size:10px;">${v}</th>`;
+    const sec = (v, span, bg, color) => `<th colspan="${span}" style="${B}background:${bg};color:${color};font-weight:700;">${v}</th>`;
+
+    const tempDiv = document.createElement('div');
+    tempDiv.style.cssText = 'position:fixed;left:-9999px;top:0;background:#fff;padding:30px;width:2400px;font-family:Arial, sans-serif;';
+    tempDiv.innerHTML = `
+        <div style="text-align:center;margin-bottom:20px;">
+            <h2 style="margin:0 0 5px 0;font-size:22px;color:#333;">SUPPLIER COMPARISON TABLE</h2>
+            <p style="margin:0;font-size:13px;color:#666;">PT. Niramas Utama (INACO)</p>
+            <p style="margin:5px 0 0 0;font-size:12px;color:#888;">${esc(g.title || 'Group #' + g.group_id)} | Status: ${esc((g.status || '').toUpperCase())}</p>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:11px;">
+            <thead>
+                <tr>
+                    ${sec('ITEM (dari PR)', 6, '#e0e0e0', '#333')}
+                    ${sec('LAST ORDER', 11, '#e8e8e8', '#333')}
+                    ${sec('PLAN ORDER', 9, '#e3f2fd', '#1565c0')}
+                    ${sec('GAP', 3, '#ffcc80', '#e65100')}
+                    ${sec('AWARDED (Final Selection)', 6, '#fff59d', '#f57f17')}
+                </tr>
+                <tr>
+                    ${th('No', '#fafafa')}${th('PR', '#fafafa')}${th('Material Code', '#fafafa')}${th('Description', '#fafafa')}${th('UOM', '#fafafa')}${th('Qty PR', '#fafafa')}
+                    ${th('QTY', '#f5f5f5')}${th('No PO', '#f5f5f5')}${th('Tgl PO', '#f5f5f5')}${th('Curr', '#f5f5f5')}${th('Price (asing)', '#f5f5f5')}${th('Tgl Kurs', '#f5f5f5')}${th('Nilai Kurs (IDR)', '#f5f5f5')}${th('Price (IDR)', '#f5f5f5')}${th('TIBA NU (IDR)', '#f5f5f5')}${th('Amount (IDR)', '#f5f5f5')}${th('Supplier', '#f5f5f5')}
+                    ${th('QTY', '#eaf5ff')}${th('Curr', '#eaf5ff')}${th('Price (asing)', '#eaf5ff')}${th('Tgl Kurs', '#eaf5ff')}${th('Nilai Kurs (IDR)', '#eaf5ff')}${th('Price (IDR)', '#eaf5ff')}${th('TIBA NU (IDR)', '#eaf5ff')}${th('Amount (IDR)', '#eaf5ff')}${th('Supplier', '#eaf5ff')}
+                    ${th('Price (IDR)', '#ffe9cc')}${th('%', '#ffe9cc')}${th('Status', '#ffe9cc')}
+                    ${th('Tgl PO', '#fffdf0')}${th('Deliv.', '#fffdf0')}${th('No PO', '#fffdf0')}${th('Supplier', '#fffdf0')}${th('Amount (IDR)', '#fffdf0')}${th('Ket.', '#fffdf0')}
+                </tr>
+            </thead>
+            <tbody>${bodyRows}</tbody>
+        </table>`;
+
+    document.body.appendChild(tempDiv);
+    html2canvas(tempDiv, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false })
+        .then(canvas => {
+            const link = document.createElement('a');
+            link.download = `Comparison_Group_${g.group_id || 'export'}_${new Date().toISOString().slice(0, 10)}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            document.body.removeChild(tempDiv);
+            showToast('Image exported successfully!', 'success');
+        })
+        .catch(err => {
+            console.error('html2canvas error:', err);
+            document.body.removeChild(tempDiv);
+            showToast('Error generating image. Please try again.', 'error');
         });
 }
 
